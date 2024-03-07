@@ -1,0 +1,51 @@
+[build-system]
+requires = ["hatchling"]
+build-backend = "hatchling.build"
+
+[project]
+name = "envelop"
+dynamic = ["version"]
+description = ''
+readme = "README.md"
+requires-python = ">=3.10,<4.0"
+license = "MIT"
+keywords = []
+authors = [
+  { name = "Lucino772", email = "lucapalmi772@gmail.com" },
+]
+classifiers = [
+  "Development Status :: 4 - Beta",
+  "Programming Language :: Python",
+  "Programming Language :: Python :: 3.10",
+  "Programming Language :: Python :: 3.11",
+  "Programming Language :: Python :: 3.12",
+  "Programming Language :: Python :: Implementation :: CPython",
+  "Programming Language :: Python :: Implementation :: PyPy",
+]
+dependencies = []
+
+[project.urls]
+Documentation = "https://github.com/Lucino772/envelop#readme"
+Issues = "https://github.com/Lucino772/envelop/issues"
+Source = "https://github.com/Lucino772/envelop"
+
+[tool.hatch.version]
+path = "src/envelop/__about__.py"
+
+[tool.hatch.envs.style]
+dependencies = [
+  "ruff==0.2.1"
+]
+
+[tool.hatch.envs.style.scripts]
+check = [
+  "ruff check --no-fix .",
+  "ruff format --check ."
+]
+fmt = [
+  "ruff check --fix .",
+  "ruff format ."
+]
+
+[tool.ruff.lint]
+extend-select = ["E", "F", "I"]

@@ -31,3 +31,21 @@ Source = "https://github.com/Lucino772/envelop"
 
 [tool.hatch.version]
 path = "src/envelop/__about__.py"
+
+[tool.hatch.envs.style]
+dependencies = [
+  "ruff==0.2.1"
+]
+
+[tool.hatch.envs.style.scripts]
+check = [
+  "ruff check --no-fix .",
+  "ruff format --check ."
+]
+fmt = [
+  "ruff check --fix .",
+  "ruff format ."
+]
+
+[tool.ruff.lint]
+extend-select = ["E", "F", "I"]

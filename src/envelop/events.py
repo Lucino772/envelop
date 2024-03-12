@@ -1,11 +1,8 @@
-from __future__ import annotations
-
 import abc
 import uuid
-from typing import Any, Mapping
+from typing import Any, ClassVar, Mapping
 
 from pydantic import BaseModel, Field
-from typing_extensions import ClassVar
 
 
 class _BaseEvent(BaseModel, abc.ABC):
@@ -23,4 +20,6 @@ class _BaseEvent(BaseModel, abc.ABC):
 
 
 class ProcessLog(_BaseEvent):
+    name = "/process/log"
+
     log: str

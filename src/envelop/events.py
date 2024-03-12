@@ -1,30 +1,26 @@
 from __future__ import annotations
 
+import abc
 import uuid
-from dataclasses import dataclass, field
+from typing import Any, Mapping
 
-from typing_extensions import Any, ClassVar, Mapping, TypedDict
+from pydantic import BaseModel, Field
+from typing_extensions import ClassVar
 
 
-@dataclass
-class _BaseEvent:
+class _BaseEvent(BaseModel, abc.ABC):
     name: ClassVar[str]
-    uid: str = field(default_factory=lambda: str(uuid.uuid4()), init=False)
-    data: Mapping[str, Any] = field(init=False, default_factory=dict)
-
-    def get_uid(self) -> str:
-        return self.uid
+    uid: str = Field(default_factory=lambda: uuid.uuid4().hex, init=False)
 
     def get_name(self) -> str:
         return self.name
 
+    def get_uid(self) -> str:
+        return self.uid
+
     def get_data(self) -> Mapping[str, Any]:
-        return self.data
+        return self.model_dump()
 
 
-@dataclass
 class ProcessLog(_BaseEvent):
-    LogData = TypedDict("LogData", {"log": str})
-    name = "/process/log"
-
-    data: LogData = field()
+    log: str

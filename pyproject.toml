@@ -22,7 +22,9 @@ classifiers = [
   "Programming Language :: Python :: Implementation :: CPython",
   "Programming Language :: Python :: Implementation :: PyPy",
 ]
-dependencies = []
+dependencies = [
+  "pydantic==2.6.4"
+]
 
 [project.urls]
 Documentation = "https://github.com/Lucino772/envelop#readme"

@@ -1,6 +1,7 @@
 from __future__ import annotations
 
 from abc import ABCMeta, abstractmethod
+from typing import Coroutine
 
 import grpc
 from google.protobuf.empty_pb2 import Empty
@@ -13,7 +14,9 @@ from envelop.types import SupportsGenericRpcHandlers
 
 class AbstractProcessService(metaclass=ABCMeta):
     @abstractmethod
-    def WriteCommand(self, request: Command, context: grpc.ServicerContext) -> Empty:
+    def WriteCommand(
+        self, request: Command, context: grpc.ServicerContext
+    ) -> Coroutine[None, None, Empty]:
         raise NotImplementedError
 
     @abstractmethod

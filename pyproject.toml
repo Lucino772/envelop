@@ -23,7 +23,8 @@ classifiers = [
   "Programming Language :: Python :: Implementation :: PyPy",
 ]
 dependencies = [
-  "pydantic==2.6.4"
+  "pydantic==2.6.4",
+  "grpcio[protobuf]==1.62.1"
 ]
 
 [project.urls]
@@ -33,6 +34,21 @@ Source = "https://github.com/Lucino772/envelop"
 
 [tool.hatch.version]
 path = "src/envelop/__about__.py"
+
+[tool.hatch.envs.grpc]
+dependencies = [
+  "grpcio-tools==1.62.1"
+]
+
+[tool.hatch.envs.grpc.scripts]
+build = """\
+python -m grpc_tools.protoc \
+  -Ienvelop/services/proto=protos \
+  --python_out=./src \
+  --pyi_out=./src \
+  --grpc_python_out=./src \
+  protos/**.proto
+"""
 
 [tool.hatch.envs.style]
 dependencies = [

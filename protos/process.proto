@@ -1,0 +1,19 @@
+syntax = "proto3";
+
+import "google/protobuf/empty.proto";
+import "google/protobuf/timestamp.proto";
+
+service Process {
+    rpc WriteCommand (Command) returns (google.protobuf.Empty);
+    rpc StreamLogs (google.protobuf.Empty) returns (stream Log);
+}
+
+message Command {
+    string value = 1;
+}
+
+message Log {
+    string id = 1;
+    google.protobuf.Timestamp timestamp = 2;
+    string value = 3;
+}

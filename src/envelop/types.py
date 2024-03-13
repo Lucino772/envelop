@@ -30,11 +30,3 @@ class SupportsGenericRpcHandlers(Protocol):
 
 class Servicer(Protocol):
     def add_rpc_handlers(self, server: SupportsGenericRpcHandlers) -> None: ...
-
-
-class Builder(Protocol):
-    def add_service(self, service: Servicer) -> None: ...
-
-
-class Module(Protocol):
-    def register(self, builder: Builder) -> Builder: ...

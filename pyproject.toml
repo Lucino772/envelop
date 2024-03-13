@@ -65,6 +65,9 @@ fmt = [
   "ruff format ."
 ]
 
+[tool.ruff]
+extend-exclude = ["*_pb2.py", "*_pb2.pyi","*_pb2_grpc.py" ]
+
 [tool.ruff.lint]
 extend-select = ["E", "F", "I"]
 ignore = ["E501"]

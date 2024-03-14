@@ -1,5 +1,5 @@
 import asyncio
-from typing import Any, Coroutine, Mapping, Protocol, Sequence
+from typing import Any, AsyncIterator, Coroutine, Mapping, Protocol, Sequence
 
 import grpc
 
@@ -30,3 +30,13 @@ class SupportsGenericRpcHandlers(Protocol):
 
 class Servicer(Protocol):
     def add_rpc_handlers(self, server: SupportsGenericRpcHandlers) -> None: ...
+
+
+class Application(Protocol):
+    def iter_logs(self) -> AsyncIterator[str]: ...
+
+    def write_stdin(self, command: str) -> Coroutine[None, None, None]: ...
+
+    def iter_events(self) -> AsyncIterator[Event]: ...
+
+    def emit_event(self, event: Event) -> Coroutine[None, None, None]: ...

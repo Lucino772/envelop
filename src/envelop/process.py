@@ -2,6 +2,7 @@ from __future__ import annotations
 
 import asyncio
 import contextlib
+import os
 import signal
 from typing import (
     IO,
@@ -24,7 +25,7 @@ class ProcessBuilder:
         self._program: str = program
         self._cwd: str | None = None
         self._args: List[str] = []
-        self._env_vars: MutableMapping[str, Any] = {}
+        self._env_vars: MutableMapping[str, Any] = {**os.environ}
         self._stdin: int | IO[Any] | None = None
         self._stdout: int | IO[Any] | None = None
         self._stderr: int | IO[Any] | None = None

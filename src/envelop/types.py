@@ -1,3 +1,5 @@
+from __future__ import annotations
+
 import asyncio
 from typing import Any, AsyncIterator, Coroutine, Mapping, Protocol, Sequence
 
@@ -40,3 +42,11 @@ class Context(Protocol):
     def iter_events(self) -> AsyncIterator[Event]: ...
 
     def emit_event(self, event: Event) -> Coroutine[None, None, None]: ...
+
+
+class Builder:
+    def add_service(self, service: Servicer) -> Builder: ...
+
+
+class Module:
+    def register(self, builder: Builder, context: Context, config: dict) -> Builder: ...

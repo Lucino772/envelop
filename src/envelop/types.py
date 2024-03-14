@@ -1,19 +1,8 @@
 from __future__ import annotations
 
-import asyncio
 from typing import Any, AsyncIterator, Coroutine, Mapping, Protocol, Sequence
 
 import grpc
-
-
-class ProcessWriter(Protocol):
-    def write(self, value: str, encoding: str = ...) -> Coroutine[None, None, None]: ...
-
-
-class ProcessStopper(Protocol):
-    def stop(
-        self, writter: ProcessWriter, process: asyncio.subprocess.Process
-    ) -> Coroutine[None, None, None]: ...
 
 
 class Event(Protocol):
@@ -44,9 +33,17 @@ class Context(Protocol):
     def emit_event(self, event: Event) -> Coroutine[None, None, None]: ...
 
 
-class Builder:
+class Builder(Protocol):
     def add_service(self, service: Servicer) -> Builder: ...
 
 
-class Module:
+class Module(Protocol):
     def register(self, builder: Builder, context: Context, config: dict) -> Builder: ...
+
+
+class Process(Protocol):
+    def write(self, value: str) -> Coroutine[Any, Any, None]: ...
+
+    def __aiter__(self) -> AsyncIterator[str]: ...
+
+    def run(self) -> Coroutine[Any, Any, None]: ...

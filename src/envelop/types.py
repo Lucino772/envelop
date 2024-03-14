@@ -31,6 +31,11 @@ class Servicer(Protocol):
         ...
 
 
+class Runnable(Protocol):
+    def run(self) -> Coroutine[None, None, None]:
+        ...
+
+
 class Context(Protocol):
     def iter_logs(self) -> AsyncIterator[str]:
         ...
@@ -47,6 +52,9 @@ class Context(Protocol):
 
 class Builder(Protocol):
     def add_service(self, service: Servicer) -> Builder:
+        ...
+
+    def add_task(self, task: Runnable) -> Builder:
         ...
 
 

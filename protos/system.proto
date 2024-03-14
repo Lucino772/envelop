@@ -1,0 +1,14 @@
+syntax = "proto3";
+
+import "google/protobuf/empty.proto";
+import "google/protobuf/struct.proto";
+
+service System {
+    rpc StreamEvents (google.protobuf.Empty) returns (stream Event);
+}
+
+message Event {
+    string id = 1;
+    string name = 2;
+    google.protobuf.Struct data = 3;
+}

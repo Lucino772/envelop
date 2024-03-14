@@ -6,8 +6,8 @@ from typing import TYPE_CHECKING, final
 
 import grpc
 
-from envelop.emitter import EventEmitter
 from envelop.process import ProcessBuilder
+from envelop.queue import Producer
 
 if TYPE_CHECKING:
     from collections.abc import AsyncIterator, Mapping
@@ -34,7 +34,7 @@ class Application:
 
 class AppContext:
     def __init__(self):
-        self._events = EventEmitter()
+        self._events: Producer[Event] = Producer()
         self._process: Process | None = None
         self._tasks: list[asyncio.Task] = []
 
@@ -53,14 +53,16 @@ class AppContext:
         return aiter(self._events)
 
     async def emit_event(self, event: Event) -> None:
-        await self._events.emit(event)
+        await self._events.put(event)
 
     async def run(
         self, server: grpc.aio.Server, process: Process, tasks: list[Runnable]
     ) -> None:
+        tasks.append(self._events)
+
         try:
             await server.start()
-            for task in tasks:
+            for task in [*tasks]:
                 self._tasks.append(asyncio.create_task(task.run()))
             self._process = process
             await self._process.run()

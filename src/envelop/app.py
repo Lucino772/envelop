@@ -2,13 +2,17 @@ from __future__ import annotations
 
 import asyncio
 import shlex
-from typing import AsyncIterator, List, Mapping, final
+from typing import TYPE_CHECKING, final
 
 import grpc
 
 from envelop.emitter import EventEmitter
 from envelop.process import ProcessBuilder
-from envelop.types import Event, Module, Process, Servicer
+
+if TYPE_CHECKING:
+    from collections.abc import AsyncIterator, Mapping
+
+    from envelop.types import Event, Module, Process, Servicer
 
 
 class Application:
@@ -59,7 +63,7 @@ class AppContext:
 @final
 class AppBuilder:
     def __init__(self) -> None:
-        self._services: List[Servicer] = []
+        self._services: list[Servicer] = []
 
     def add_service(self, service: Servicer) -> AppBuilder:
         self._services.append(service)

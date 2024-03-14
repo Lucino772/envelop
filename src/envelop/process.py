@@ -4,19 +4,14 @@ import asyncio
 import contextlib
 import os
 import signal
-from typing import (
-    IO,
-    Any,
-    AsyncIterator,
-    Iterable,
-    List,
-    Mapping,
-    MutableMapping,
-    final,
-)
+from typing import IO, TYPE_CHECKING, Any, final
 
 from envelop.consumer import AsyncConsumer
-from envelop.types import Process
+
+if TYPE_CHECKING:
+    from collections.abc import AsyncIterator, Iterable, Mapping, MutableMapping
+
+    from envelop.types import Process
 
 
 @final
@@ -24,7 +19,7 @@ class ProcessBuilder:
     def __init__(self, program: str) -> None:
         self._program: str = program
         self._cwd: str | None = None
-        self._args: List[str] = []
+        self._args: list[str] = []
         self._env_vars: MutableMapping[str, Any] = {**os.environ}
         self._stdin: int | IO[Any] | None = None
         self._stdout: int | IO[Any] | None = None
@@ -41,8 +36,8 @@ class ProcessBuilder:
         self._args.extend(args)
         return self
 
-    def envs(self, vars: Mapping[str, Any]) -> ProcessBuilder:
-        self._env_vars.update(vars)
+    def envs(self, env_vars: Mapping[str, Any]) -> ProcessBuilder:
+        self._env_vars.update(env_vars)
         return self
 
     def stdin(self, stdin: int | IO[Any]) -> ProcessBuilder:
@@ -66,7 +61,7 @@ class ProcessBuilder:
         return self
 
     def build(self) -> Process:
-        cmd_args = [self._program] + self._args
+        cmd_args = [self._program, *self._args]
         return AppProcess(
             command=cmd_args,
             env=self._env_vars,
@@ -98,7 +93,7 @@ class AppProcess:
         self._stderr = stderr
 
         self._process: asyncio.subprocess.Process | None = None
-        self._consumers: List[AsyncConsumer[str]] = []
+        self._consumers: list[AsyncConsumer[str]] = []
         self._graceful_timeout: int = graceful_timeout
         self._graceful_command: str | None = graceful_command
         self._graceful_signal: int | None = graceful_signal
@@ -112,7 +107,7 @@ class AppProcess:
         if self._process is None or self._process.stdin is None:
             return  # TODO: Return error
 
-        self._process.stdin.write(f"{value}\n".encode("utf-8"))
+        self._process.stdin.write(f"{value}\n".encode())
         await self._process.stdin.drain()
 
     async def run(self) -> None:
@@ -147,7 +142,7 @@ class AppProcess:
 
     def _setup_interrupts(self, stop_flag: asyncio.Event):
         _loop = asyncio.get_running_loop()
-        for sig in {signal.SIGINT, signal.SIGTERM}:
+        for sig in (signal.SIGINT, signal.SIGTERM):
             _loop.remove_signal_handler(sig)
             _loop.add_signal_handler(sig, lambda: stop_flag.set())
 

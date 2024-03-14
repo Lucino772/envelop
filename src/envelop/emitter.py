@@ -1,5 +1,5 @@
 import asyncio
-from typing import AsyncIterator, List
+from collections.abc import AsyncIterator
 
 from envelop.consumer import AsyncConsumer
 from envelop.types import Event
@@ -7,7 +7,7 @@ from envelop.types import Event
 
 class EventEmitter:
     def __init__(self):
-        self.__consumers: List[AsyncConsumer[Event]] = []
+        self.__consumers: list[AsyncConsumer[Event]] = []
 
     async def emit(self, event: Event) -> None:
         await asyncio.gather(*[consumer.put(event) for consumer in self.__consumers])

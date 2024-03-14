@@ -1,15 +1,19 @@
+# ruff: noqa: N802
 from __future__ import annotations
 
 from abc import ABCMeta, abstractmethod
-from typing import Coroutine
+from typing import TYPE_CHECKING
 
-import grpc
-from google.protobuf.empty_pb2 import Empty
-from typing_extensions import AsyncIterator
-
-from envelop.services.proto.process_pb2 import Command, Log
 from envelop.services.proto.process_pb2_grpc import add_ProcessServicer_to_server
-from envelop.types import SupportsGenericRpcHandlers
+
+if TYPE_CHECKING:
+    from collections.abc import AsyncIterator, Coroutine
+
+    import grpc
+    from google.protobuf.empty_pb2 import Empty
+
+    from envelop.services.proto.process_pb2 import Command, Log
+    from envelop.types import SupportsGenericRpcHandlers
 
 
 class AbstractProcessService(metaclass=ABCMeta):

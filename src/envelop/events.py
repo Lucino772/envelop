@@ -1,6 +1,7 @@
 import abc
 import uuid
-from typing import Any, ClassVar, Mapping
+from collections.abc import Mapping
+from typing import Any, ClassVar
 
 from pydantic import BaseModel, Field
 

@@ -50,24 +50,6 @@ python -m grpc_tools.protoc \
   protos/**.proto
 """
 
-[tool.hatch.envs.style]
-dependencies = [
-  "ruff==0.3.2"
-]
-
-[tool.hatch.envs.style.scripts]
-check = [
-  "ruff check --no-fix .",
-  "ruff format --check ."
-]
-fmt = [
-  "ruff check --fix .",
-  "ruff format ."
-]
-
 [tool.ruff]
+line-length = 88
 extend-exclude = ["*_pb2.py", "*_pb2.pyi","*_pb2_grpc.py" ]
-
-[tool.ruff.lint]
-extend-select = ["E", "F", "I"]
-ignore = ["E501"]

@@ -1,3 +1,4 @@
+# ruff: noqa: ARG001
 from envelop.modules.core.services import ProcessService, SystemService
 from envelop.types import Builder, Context
 

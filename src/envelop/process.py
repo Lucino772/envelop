@@ -15,12 +15,12 @@ if TYPE_CHECKING:
 class AppProcess:
     def __init__(
         self,
-        command: Iterable[str],
+        program: str,
         producer: Producer[str],
         init_env: Mapping[str, Any] = os.environ,
     ) -> None:
         self._producer = producer
-        self._command = command
+        self._program = program
         self._env_vars: MutableMapping[str, Any] = {**init_env}
         self._cwd: str = os.getcwd()
         self._args: list[str] = []
@@ -59,7 +59,7 @@ class AppProcess:
 
     async def run(self) -> None:
         self._process = await asyncio.create_subprocess_exec(
-            *self._command,
+            *[self._program, *self._args],
             stdin=asyncio.subprocess.PIPE,
             stdout=asyncio.subprocess.PIPE,
             stderr=asyncio.subprocess.STDOUT,

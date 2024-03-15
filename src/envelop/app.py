@@ -7,7 +7,7 @@ from typing import TYPE_CHECKING, Any, final
 import grpc
 import structlog
 
-from envelop.events import StateUpdate
+from envelop.events import ProcessLog, StateUpdate
 from envelop.process import AppProcess
 from envelop.queue import Producer
 from envelop.store import MemoryStore
@@ -15,9 +15,18 @@ from envelop.store import MemoryStore
 if TYPE_CHECKING:
     from collections.abc import AsyncIterator, Mapping
 
-    from envelop.types import Event, Module, Process, Runnable, Servicer, Store
+    from envelop.types import Context, Event, Module, Process, Runnable, Servicer, Store
 
 logger: structlog.stdlib.BoundLogger = structlog.get_logger()
+
+
+class _ForwardLogTasks:
+    def __init__(self, ctx: Context) -> None:
+        self._ctx = ctx
+
+    async def run(self):
+        async for log in self._ctx.iter_logs():
+            await self._ctx.emit_event(ProcessLog(log=log))
 
 
 class Application:
@@ -114,6 +123,9 @@ class AppBuilder:
         context = AppContext(
             event_producer=Producer(), log_producer=log_producer, store=MemoryStore()
         )
+
+        # Add forward log task
+        self.add_task(_ForwardLogTasks(context))
 
         # Create process
         command = shlex.split(config["process"]["command"])

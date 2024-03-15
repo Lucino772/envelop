@@ -6,7 +6,7 @@ from typing import TYPE_CHECKING, final
 
 import grpc
 
-from envelop.process import ProcessBuilder
+from envelop.process import AppProcess
 from envelop.queue import Producer
 
 if TYPE_CHECKING:
@@ -33,16 +33,14 @@ class Application:
 
 
 class AppContext:
-    def __init__(self):
-        self._events: Producer[Event] = Producer()
+    def __init__(self, event_producer: Producer[Event], log_producer: Producer[str]):
+        self._events: Producer[Event] = event_producer
+        self._logs: Producer[str] = log_producer
         self._process: Process | None = None
         self._tasks: list[asyncio.Task] = []
 
     def iter_logs(self) -> AsyncIterator[str]:
-        if self._process is None:
-            raise RuntimeError
-
-        return aiter(self._process)
+        return aiter(self._logs)
 
     async def write_stdin(self, command: str) -> None:
         if self._process is None:
@@ -59,6 +57,7 @@ class AppContext:
         self, server: grpc.aio.Server, process: Process, tasks: list[Runnable]
     ) -> None:
         tasks.append(self._events)
+        tasks.append(self._logs)
 
         try:
             await server.start()
@@ -87,27 +86,20 @@ class AppBuilder:
         return self
 
     def build(self, config: dict, registry: Mapping[str, Module]) -> Application:
-        context = AppContext()
+        log_producer: Producer[str] = Producer()
+        context = AppContext(event_producer=Producer(), log_producer=log_producer)
 
         # Create process
         command = shlex.split(config["process"]["command"])
         env = config["process"].get("env", {})
         graceful = config["process"]["graceful"]
 
-        builder = (
-            ProcessBuilder(command[0])
-            .args(command[1:])
-            .envs(env)
-            .stdin(asyncio.subprocess.PIPE)
-            .stdout(asyncio.subprocess.PIPE)
-            .stderr(asyncio.subprocess.STDOUT)
-        )
+        process = AppProcess(command[0], log_producer).args(command[1:]).envs(env)
         timeout = graceful.get("timeout", 30)
         if "signal" in graceful:
-            builder = builder.graceful(int(graceful["signal"]), timeout)
+            process = process.graceful(int(graceful["signal"]), timeout)
         else:
-            builder = builder.graceful(graceful["cmd"], timeout)
-        process = builder.build()
+            process = process.graceful(graceful["cmd"], timeout)
 
         # Register each module
         for module_settings in config.get("modules", []):

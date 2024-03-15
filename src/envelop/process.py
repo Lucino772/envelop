@@ -14,7 +14,7 @@ if TYPE_CHECKING:
 
     from envelop.queue import Producer
 
-logger: structlog.stdlib.BoundLogger = structlog.get_logger(module="process")
+logger: structlog.stdlib.BoundLogger = structlog.get_logger()
 
 
 class AppProcess:
@@ -67,9 +67,12 @@ class AppProcess:
         stop_flag = asyncio.Event()
 
         command = [self._program, *self._args]
-        log.debug("exec_command", command=shlex.join(command))
-        log.debug("exec_env", env=self._env_vars)
-        log.debug("exec_cwd", cwd=self._cwd)
+        log.debug(
+            "process.exec.info",
+            command=shlex.join(command),
+            env=self._env_vars,
+            cwd=self._cwd,
+        )
         self._process = await asyncio.create_subprocess_exec(
             *command,
             stdin=asyncio.subprocess.PIPE,
@@ -79,7 +82,7 @@ class AppProcess:
             cwd=self._cwd,
         )
         log = log.bind(pid=self._process.pid)
-        log.debug("started")
+        log.debug("process.started")
 
         produce_logs_task = asyncio.create_task(self._produce_logs(self._process))
         self._setup_interrupts(stop_flag)
@@ -98,7 +101,7 @@ class AppProcess:
         if completed_task.get_name() == "stop" and self._process.returncode is None:
             await self._stop(self._process)
 
-        log.debug("stopped", rc=self._process.returncode)
+        log.debug("process.stopped", rc=self._process.returncode)
         produce_logs_task.cancel()
 
     def _setup_interrupts(self, stop_flag: asyncio.Event):
@@ -130,18 +133,18 @@ class AppProcess:
                 )
         if process.returncode is None:
             process.kill()
-            log.debug("killed")
+            log.debug("process.killed")
 
     async def _stop_with_command(
         self, process: asyncio.subprocess.Process, command: str, timeout: int
     ):
         log = logger.bind(pid=process.pid)
         try:
-            log.debug("graceful_stop_command", command=command)
+            log.debug("process.graceful.command", command=command)
             await self.write(command)
             await asyncio.wait_for(process.wait(), timeout)
         except Exception:
-            log.debug("graceful_stop_error")
+            log.debug("process.graceful.error")
             raise
 
     async def _stop_with_signal(
@@ -149,9 +152,9 @@ class AppProcess:
     ):
         log = logger.bind(pid=process.pid)
         try:
-            log.debug("graceful_stop_signal", signal=stop_signal)
+            log.debug("process.graceful.signal", signal=stop_signal)
             process.send_signal(stop_signal)
             await asyncio.wait_for(process.wait(), timeout)
         except Exception:
-            log.debug("graceful_stop_error")
+            log.debug("process.graceful.error")
             raise

@@ -5,6 +5,7 @@ import shlex
 from typing import TYPE_CHECKING, Any, final
 
 import grpc
+import structlog
 
 from envelop.events import StateUpdate
 from envelop.process import AppProcess
@@ -15,6 +16,8 @@ if TYPE_CHECKING:
     from collections.abc import AsyncIterator, Mapping
 
     from envelop.types import Event, Module, Process, Runnable, Servicer, Store
+
+logger: structlog.stdlib.BoundLogger = structlog.get_logger()
 
 
 class Application:
@@ -56,7 +59,11 @@ class AppContext:
         return aiter(self._events)
 
     async def emit_event(self, event: Event) -> None:
+        log = logger.bind()
         await self._events.put(event)
+        log.debug(
+            "app.events:%s", event.get_name(), id=event.get_uid(), data=event.get_data()
+        )
 
     async def write_store(self, key: str, data: Mapping[str, Any]) -> None:
         await self._store.write(key, data)
@@ -68,19 +75,24 @@ class AppContext:
     async def run(
         self, server: grpc.aio.Server, process: Process, tasks: list[Runnable]
     ) -> None:
+        log = logger.bind()
         tasks.append(self._events)
         tasks.append(self._logs)
 
         try:
             await server.start()
+            log.debug("app.server.started")
             for task in [*tasks]:
                 self._tasks.append(asyncio.create_task(task.run()))
+            log.debug("app.tasks.started")
             self._process = process
             await self._process.run()
         finally:
             await server.stop(10)
+            log.debug("app.server.stopped")
             for task in self._tasks:
                 task.cancel()
+            log.debug("app.tasks.stopped")
 
 
 @final

@@ -2,17 +2,19 @@ from __future__ import annotations
 
 import asyncio
 import shlex
-from typing import TYPE_CHECKING, final
+from typing import TYPE_CHECKING, Any, final
 
 import grpc
 
+from envelop.events import StateUpdate
 from envelop.process import AppProcess
 from envelop.queue import Producer
+from envelop.store import MemoryStore
 
 if TYPE_CHECKING:
     from collections.abc import AsyncIterator, Mapping
 
-    from envelop.types import Event, Module, Process, Runnable, Servicer
+    from envelop.types import Event, Module, Process, Runnable, Servicer, Store
 
 
 class Application:
@@ -33,11 +35,14 @@ class Application:
 
 
 class AppContext:
-    def __init__(self, event_producer: Producer[Event], log_producer: Producer[str]):
+    def __init__(
+        self, event_producer: Producer[Event], log_producer: Producer[str], store: Store
+    ):
         self._events: Producer[Event] = event_producer
         self._logs: Producer[str] = log_producer
         self._process: Process | None = None
         self._tasks: list[asyncio.Task] = []
+        self._store: Store = store
 
     def iter_logs(self) -> AsyncIterator[str]:
         return aiter(self._logs)
@@ -52,6 +57,13 @@ class AppContext:
 
     async def emit_event(self, event: Event) -> None:
         await self._events.put(event)
+
+    async def write_store(self, key: str, data: Mapping[str, Any]) -> None:
+        await self._store.write(key, data)
+        await self.emit_event(StateUpdate(state=key, data=data))
+
+    async def read_store(self, key: str) -> Mapping[str, Any]:
+        return await self._store.read(key)
 
     async def run(
         self, server: grpc.aio.Server, process: Process, tasks: list[Runnable]
@@ -87,7 +99,9 @@ class AppBuilder:
 
     def build(self, config: dict, registry: Mapping[str, Module]) -> Application:
         log_producer: Producer[str] = Producer()
-        context = AppContext(event_producer=Producer(), log_producer=log_producer)
+        context = AppContext(
+            event_producer=Producer(), log_producer=log_producer, store=MemoryStore()
+        )
 
         # Create process
         command = shlex.split(config["process"]["command"])

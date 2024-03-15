@@ -19,6 +19,14 @@ class Event(Protocol):
         ...
 
 
+class Store(Protocol):
+    def write(self, key: str, data: Mapping[str, Any]) -> Coroutine[None, None, None]:
+        ...
+
+    def read(self, key: str) -> Coroutine[None, None, Mapping[str, Any]]:
+        ...
+
+
 class SupportsGenericRpcHandlers(Protocol):
     def add_generic_rpc_handlers(
         self, generic_rpc_handlers: Sequence[grpc.GenericRpcHandler]
@@ -47,6 +55,14 @@ class Context(Protocol):
         ...
 
     def emit_event(self, event: Event) -> Coroutine[None, None, None]:
+        ...
+
+    def write_store(
+        self, key: str, data: Mapping[str, Any]
+    ) -> Coroutine[None, None, None]:
+        ...
+
+    def read_store(self, key: str) -> Coroutine[None, None, Mapping[str, Any]]:
         ...
 
 

@@ -20,6 +20,13 @@ class _BaseEvent(BaseModel, abc.ABC):
         return self.model_dump()
 
 
+class StateUpdate(_BaseEvent):
+    name = "/state/update"
+
+    state: str
+    data: Mapping[str, Any]
+
+
 class ProcessLog(_BaseEvent):
     name = "/process/log"
 

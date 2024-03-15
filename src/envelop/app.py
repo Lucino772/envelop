@@ -2,10 +2,11 @@ from __future__ import annotations
 
 import asyncio
 import shlex
-from typing import TYPE_CHECKING, final
+from typing import TYPE_CHECKING, Any, final
 
 import grpc
 
+from envelop.events import StateUpdate
 from envelop.process import AppProcess
 from envelop.queue import Producer
 from envelop.store import MemoryStore
@@ -57,8 +58,12 @@ class AppContext:
     async def emit_event(self, event: Event) -> None:
         await self._events.put(event)
 
-    def get_store(self) -> Store:
-        return self._store
+    async def write_store(self, key: str, data: Mapping[str, Any]) -> None:
+        await self._store.write(key, data)
+        await self.emit_event(StateUpdate(state=key, data=data))
+
+    async def read_store(self, key: str) -> Mapping[str, Any]:
+        return await self._store.read(key)
 
     async def run(
         self, server: grpc.aio.Server, process: Process, tasks: list[Runnable]

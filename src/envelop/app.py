@@ -7,7 +7,7 @@ from typing import TYPE_CHECKING, Any, final
 import grpc
 import structlog
 
-from envelop.events import ProcessLog, StateUpdate
+from envelop.events import ProcessLog
 from envelop.process import AppProcess
 from envelop.queue import Producer
 from envelop.store import MemoryStore
@@ -76,7 +76,6 @@ class AppContext:
 
     async def write_store(self, key: str, data: Mapping[str, Any]) -> None:
         await self._store.write(key, data)
-        await self.emit_event(StateUpdate(state=key, data=data))
 
     async def read_store(self, key: str) -> Mapping[str, Any]:
         return await self._store.read(key)

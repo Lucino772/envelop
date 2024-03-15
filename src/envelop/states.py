@@ -3,6 +3,7 @@ from typing import ClassVar, Self
 
 from pydantic import BaseModel, Field
 
+from envelop.events import StateUpdate
 from envelop.types import Context
 
 
@@ -10,7 +11,9 @@ class _BaseState(BaseModel, abc.ABC):
     name: ClassVar[str]
 
     async def write(self, ctx: Context) -> None:
-        await ctx.write_store(self.name, self.model_dump())
+        data = self.model_dump()
+        await ctx.write_store(self.name, data)
+        await ctx.emit_event(StateUpdate(state=self.name, data=data))
 
     @classmethod
     async def read(cls, ctx: Context) -> Self:

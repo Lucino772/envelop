@@ -57,7 +57,12 @@ class Context(Protocol):
     def emit_event(self, event: Event) -> Coroutine[None, None, None]:
         ...
 
-    def get_store(self) -> Store:
+    def write_store(
+        self, key: str, data: Mapping[str, Any]
+    ) -> Coroutine[None, None, None]:
+        ...
+
+    def read_store(self, key: str) -> Coroutine[None, None, Mapping[str, Any]]:
         ...
 
 

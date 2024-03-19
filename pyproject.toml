@@ -38,14 +38,6 @@ Source = "https://github.com/Lucino772/envelop"
 [tool.hatch.version]
 path = "src/envelop/__about__.py"
 
-[tool.hatch.build.targets.wheel.hooks.custom]
-path = "scripts/pyapp_hook.py"
-
-python-version = "3.10"
-exec-spec = "envelop.cli:cli"
-full-isolation = true
-pip-external = true
-
 [tool.hatch.envs.grpc]
 dependencies = [
   "grpcio-tools==1.62.1"

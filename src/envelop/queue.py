@@ -1,6 +1,12 @@
+from __future__ import annotations
+
 import asyncio
-from collections.abc import AsyncIterator
-from typing import Generic, TypeVar
+from typing import TYPE_CHECKING, Generic
+
+from typing_extensions import TypeVar
+
+if TYPE_CHECKING:
+    from collections.abc import AsyncIterator
 
 T = TypeVar("T")
 

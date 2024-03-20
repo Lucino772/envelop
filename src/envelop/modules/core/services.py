@@ -1,19 +1,26 @@
 # ruff: noqa: N802, ARG002
+from __future__ import annotations
+
 import datetime as dt
 import uuid
-from collections.abc import AsyncIterator
-from typing import final
+from typing import TYPE_CHECKING
 
 from google.protobuf.empty_pb2 import Empty
 from google.protobuf.struct_pb2 import Struct
 from google.protobuf.timestamp_pb2 import Timestamp
-from grpc import ServicerContext
+from typing_extensions import final
 
 from envelop.services.process import AbstractProcessService
 from envelop.services.proto.process_pb2 import Command, Log
 from envelop.services.proto.system_pb2 import Event
 from envelop.services.system import AbstractSystemService
-from envelop.types import Context
+
+if TYPE_CHECKING:
+    from collections.abc import AsyncIterator
+
+    from grpc import ServicerContext
+
+    from envelop.types import Context
 
 
 @final

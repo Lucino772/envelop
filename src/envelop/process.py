@@ -5,9 +5,10 @@ import contextlib
 import os
 import shlex
 import signal
-from typing import TYPE_CHECKING, Any
+from typing import TYPE_CHECKING
 
 import structlog
+from typing_extensions import Any
 
 if TYPE_CHECKING:
     from collections.abc import Iterable, Mapping, MutableMapping

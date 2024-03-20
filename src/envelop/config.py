@@ -1,10 +1,9 @@
 from __future__ import annotations
 
-from typing import Any
-
 import yaml
 from pydantic import BaseModel, Field, model_validator
 from pydantic_settings import BaseSettings
+from typing_extensions import Any
 
 
 class MutuallyExclusiveError(Exception):

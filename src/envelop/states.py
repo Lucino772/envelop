@@ -1,10 +1,15 @@
+from __future__ import annotations
+
 import abc
-from typing import ClassVar, Self
+from typing import TYPE_CHECKING, ClassVar
 
 from pydantic import BaseModel, Field
+from typing_extensions import Self
 
 from envelop.events import StateUpdate
-from envelop.types import Context
+
+if TYPE_CHECKING:
+    from envelop.types import Context
 
 
 class _BaseState(BaseModel, abc.ABC):

@@ -2,10 +2,11 @@ from __future__ import annotations
 
 import asyncio
 import shlex
-from typing import TYPE_CHECKING, Any, final
+from typing import TYPE_CHECKING
 
 import grpc
 import structlog
+from typing_extensions import Any, Self, final
 
 from envelop.events import ProcessLog
 from envelop.process import AppProcess
@@ -110,11 +111,11 @@ class AppBuilder:
         self._services: list[Servicer] = []
         self._tasks: list[Runnable] = []
 
-    def add_service(self, service: Servicer) -> AppBuilder:
+    def add_service(self, service: Servicer) -> Self:
         self._services.append(service)
         return self
 
-    def add_task(self, task: Runnable) -> AppBuilder:
+    def add_task(self, task: Runnable) -> Self:
         self._tasks.append(task)
         return self
 

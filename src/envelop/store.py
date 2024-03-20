@@ -1,5 +1,11 @@
-from collections.abc import Mapping, MutableMapping
-from typing import Any
+from __future__ import annotations
+
+from typing import TYPE_CHECKING
+
+from typing_extensions import Any
+
+if TYPE_CHECKING:
+    from collections.abc import Mapping, MutableMapping
 
 
 class MemoryStore:

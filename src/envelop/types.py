@@ -1,6 +1,8 @@
 from __future__ import annotations
 
-from typing import TYPE_CHECKING, Any, Protocol
+from typing import TYPE_CHECKING
+
+from typing_extensions import Any, Protocol, Self
 
 if TYPE_CHECKING:
     from collections.abc import AsyncIterator, Coroutine, Mapping, Sequence
@@ -67,10 +69,10 @@ class Context(Protocol):
 
 
 class Builder(Protocol):
-    def add_service(self, service: Servicer) -> Builder:
+    def add_service(self, service: Servicer) -> Self:
         ...
 
-    def add_task(self, task: Runnable) -> Builder:
+    def add_task(self, task: Runnable) -> Self:
         ...
 
 

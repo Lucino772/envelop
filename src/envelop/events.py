@@ -1,9 +1,14 @@
+from __future__ import annotations
+
 import abc
 import uuid
-from collections.abc import Mapping
-from typing import Any, ClassVar
+from typing import TYPE_CHECKING, ClassVar
 
 from pydantic import BaseModel, Field
+from typing_extensions import Any
+
+if TYPE_CHECKING:
+    from collections.abc import Mapping
 
 
 class _BaseEvent(BaseModel, abc.ABC):

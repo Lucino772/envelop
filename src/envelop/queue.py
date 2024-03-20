@@ -39,6 +39,9 @@ class AsyncIterableQueue(Generic[T]):
     async def put(self, item: T) -> None:
         await self._queue.put(item)
 
+    def put_nowait(self, item: T) -> None:
+        self._queue.put_nowait(item)
+
     def dispose(self) -> None:
         if not self._disposed.is_set():
             self._disposed.set()

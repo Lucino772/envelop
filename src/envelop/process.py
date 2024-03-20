@@ -10,6 +10,8 @@ from typing import TYPE_CHECKING
 import structlog
 from typing_extensions import Any
 
+from envelop.signals import DefaultSignalsHandler
+
 if TYPE_CHECKING:
     from collections.abc import Iterable, Mapping, MutableMapping
 
@@ -85,25 +87,26 @@ class AppProcess:
         log = log.bind(pid=self._process.pid)
         log.debug("process.started")
 
-        produce_logs_task = asyncio.create_task(self._produce_logs(self._process))
-        self._setup_interrupts(stop_flag)
+        async with DefaultSignalsHandler(
+            [signal.SIGINT, signal.SIGTERM, signal.SIGBREAK], lambda: stop_flag.set()
+        ):
+            produce_logs_task = asyncio.create_task(self._produce_logs(self._process))
+            stop_flag_task = asyncio.create_task(stop_flag.wait(), name="stop")
+            proc_wait_task = asyncio.create_task(self._process.wait(), name="wait")
 
-        stop_flag_task = asyncio.create_task(stop_flag.wait(), name="stop")
-        proc_wait_task = asyncio.create_task(self._process.wait(), name="wait")
+            done, pending = await asyncio.wait(
+                [stop_flag_task, proc_wait_task], return_when=asyncio.FIRST_COMPLETED
+            )
 
-        done, pending = await asyncio.wait(
-            [stop_flag_task, proc_wait_task], return_when=asyncio.FIRST_COMPLETED
-        )
+            for task in pending:
+                task.cancel()
 
-        for task in pending:
-            task.cancel()
+            completed_task = done.pop()
+            if completed_task.get_name() == "stop" and self._process.returncode is None:
+                await self._stop(self._process)
 
-        completed_task = done.pop()
-        if completed_task.get_name() == "stop" and self._process.returncode is None:
-            await self._stop(self._process)
-
-        log.debug("process.stopped", rc=self._process.returncode)
-        produce_logs_task.cancel()
+            log.debug("process.stopped", rc=self._process.returncode)
+            produce_logs_task.cancel()
 
     def _setup_interrupts(self, stop_flag: asyncio.Event):
         _loop = asyncio.get_running_loop()

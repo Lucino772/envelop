@@ -14,6 +14,10 @@ if TYPE_CHECKING:
     from types import FrameType
 
 
+# The following signals handlers are inspired by the python package `trio`:
+# https://github.com/python-trio/trio/blob/e94e92a3ed21ac8f8cc15940b4f4347e9ced9465/src/trio/_signals.py#L69
+
+
 class DefaultSignalsHandler:
     def __init__(self, signals: Iterable[int], callback: Callable[[], None]) -> None:
         if platform.system() != "Windows":

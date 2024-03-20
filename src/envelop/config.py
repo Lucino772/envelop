@@ -14,7 +14,7 @@ class MutuallyExclusiveError(Exception):
 
 
 class _ProcessGracefulConfig(BaseModel):
-    timeout: int
+    timeout: int = Field(default=30)
     signal: int | None = None
     cmd: str | None = None
 
@@ -32,7 +32,7 @@ class _ProcessGracefulConfig(BaseModel):
 
 class _ProcessConfig(BaseModel):
     command: str
-    env: dict[str, Any]
+    env: dict[str, Any] = Field(default_factory=dict)
     graceful: _ProcessGracefulConfig
 
 

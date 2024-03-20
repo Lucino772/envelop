@@ -15,6 +15,7 @@ from envelop.store import MemoryStore
 if TYPE_CHECKING:
     from collections.abc import AsyncIterator, Mapping
 
+    from envelop.config import Config
     from envelop.types import Context, Event, Module, Process, Runnable, Servicer, Store
 
 logger: structlog.stdlib.BoundLogger = structlog.get_logger()
@@ -117,7 +118,7 @@ class AppBuilder:
         self._tasks.append(task)
         return self
 
-    def build(self, config: dict, registry: Mapping[str, Module]) -> Application:
+    def build(self, config: Config, registry: Mapping[str, Module]) -> Application:
         log_producer: Producer[str] = Producer()
         context = AppContext(
             event_producer=Producer(), log_producer=log_producer, store=MemoryStore()
@@ -127,24 +128,22 @@ class AppBuilder:
         self.add_task(_ForwardLogTasks(context))
 
         # Create process
-        command = shlex.split(config["process"]["command"])
-        env = config["process"].get("env", {})
-        graceful = config["process"]["graceful"]
-
-        process = AppProcess(command[0], log_producer).args(command[1:]).envs(env)
-        timeout = graceful.get("timeout", 30)
-        if "signal" in graceful:
-            process = process.graceful(int(graceful["signal"]), timeout)
-        else:
-            process = process.graceful(graceful["cmd"], timeout)
+        command = shlex.split(config.process.command)
+        process = (
+            AppProcess(command[0], log_producer)
+            .args(command[1:])
+            .envs(config.process.env)
+        )
+        timeout = config.process.graceful.timeout
+        if config.process.graceful.signal is not None:
+            process = process.graceful(config.process.graceful.signal, timeout)
+        elif config.process.graceful.cmd is not None:
+            process = process.graceful(config.process.graceful.cmd, timeout)
 
         # Register each module
-        for module_settings in config.get("modules", []):
-            module_name = module_settings["uses"]
-            module_config = module_settings.get("with", {})
-
-            module = registry[module_name]
-            module.register(self, context, module_config)
+        for mod in config.modules:
+            module = registry[mod.uses]
+            module.register(self, context, mod.config)
 
         # Create server
         server = grpc.aio.server()

@@ -1,0 +1,12 @@
+version: "3.9"
+
+name: envelop
+services:
+  build:
+    build:
+      context: .
+    # environment:
+    #   - CARGO_BUILD_TARGET=x86_64-unknown-linux-gnu
+    volumes:
+      - ..:/opt/build/envelop
+      - /var/run/docker.sock:/var/run/docker.sock

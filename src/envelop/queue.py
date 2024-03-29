@@ -69,3 +69,6 @@ class Producer(Generic[T]):
         finally:
             for consumer in self._consumers:
                 consumer.dispose()
+
+    def dispose(self) -> None:
+        self._queue.dispose()

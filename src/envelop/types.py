@@ -25,7 +25,9 @@ class Store(Protocol):
     def write(self, key: str, data: Mapping[str, Any]) -> Coroutine[None, None, None]:
         ...
 
-    def read(self, key: str) -> Coroutine[None, None, Mapping[str, Any]]:
+    def read(
+        self, key: str, default: Mapping[str, Any]
+    ) -> Coroutine[None, None, Mapping[str, Any]]:
         ...
 
 
@@ -64,7 +66,9 @@ class Context(Protocol):
     ) -> Coroutine[None, None, None]:
         ...
 
-    def read_store(self, key: str) -> Coroutine[None, None, Mapping[str, Any]]:
+    def read_store(
+        self, key: str, default: Mapping[str, Any]
+    ) -> Coroutine[None, None, Mapping[str, Any]]:
         ...
 
 

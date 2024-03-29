@@ -29,7 +29,7 @@ class StateUpdate(_BaseEvent):
     name = "/state/update"
 
     state: str
-    data: Mapping[str, Any]
+    data: dict[str, Any]
 
 
 class ProcessLog(_BaseEvent):

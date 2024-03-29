@@ -22,8 +22,8 @@ class _BaseState(BaseModel, abc.ABC):
 
     @classmethod
     async def read(cls, ctx: Context) -> Self:
-        data = await ctx.read_store(cls.name)
-        return cls.model_construct(**data)
+        data = await ctx.read_store(cls.name, {})
+        return cls.model_validate(data, from_attributes=False)
 
 
 class ProcessStatus(_BaseState):

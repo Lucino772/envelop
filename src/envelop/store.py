@@ -15,5 +15,5 @@ class MemoryStore:
     async def write(self, key: str, data: Mapping[str, Any]) -> None:
         self._data[key] = data
 
-    async def read(self, key: str) -> Mapping[str, Any]:
-        return self._data[key]
+    async def read(self, key: str, default: Mapping[str, Any]) -> Mapping[str, Any]:
+        return self._data.get(key, default)

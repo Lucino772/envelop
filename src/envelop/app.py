@@ -79,8 +79,27 @@ class AppContext:
     async def write_store(self, key: str, data: Mapping[str, Any]) -> None:
         await self._store.write(key, data)
 
-    async def read_store(self, key: str) -> Mapping[str, Any]:
-        return await self._store.read(key)
+    async def read_store(
+        self, key: str, default: Mapping[str, Any]
+    ) -> Mapping[str, Any]:
+        return await self._store.read(key, default)
+
+    async def _cleanup_tasks(self) -> None:
+        self._events.dispose()
+        self._logs.dispose()
+
+        try:
+            await asyncio.wait_for(asyncio.gather(*self._tasks), 5)
+        except asyncio.TimeoutError:
+            for task in self._tasks:
+                task.cancel()
+
+    def _handle_task_done(self, task: asyncio.Task) -> None:
+        log = logger.bind()
+        try:
+            log.debug("app.task.done", task=task.get_name(), result=task.result())
+        except Exception:
+            log.exception("app.task.error", task=task.get_name())
 
     async def run(
         self, server: grpc.aio.Server, process: Process, tasks: list[Runnable]
@@ -92,17 +111,20 @@ class AppContext:
         try:
             await server.start()
             log.debug("app.server.started")
+
             for task in [*tasks]:
                 self._tasks.append(asyncio.create_task(task.run()))
+            for task in self._tasks:
+                task.add_done_callback(self._handle_task_done)
+
             log.debug("app.tasks.started")
             self._process = process
             await self._process.run()
         finally:
+            await self._cleanup_tasks()
+            log.debug("app.tasks.stopped")
             await server.stop(10)
             log.debug("app.server.stopped")
-            for task in self._tasks:
-                task.cancel()
-            log.debug("app.tasks.stopped")
 
 
 @final

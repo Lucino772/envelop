@@ -7,11 +7,15 @@ from typing import TYPE_CHECKING
 from envelop.app import AppBuilder
 from envelop.config import Config
 from envelop.modules import core as envelop_core_module
+from envelop.modules import minecraft as envelop_minecraft_module
 
 if TYPE_CHECKING:
     from envelop.types import Module
 
-registry: dict[str, Module] = {"envelop.core": envelop_core_module}
+registry: dict[str, Module] = {
+    "envelop.core": envelop_core_module,
+    "envelop.minecraft": envelop_minecraft_module,
+}
 
 
 async def _run():

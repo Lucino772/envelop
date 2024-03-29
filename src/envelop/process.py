@@ -88,7 +88,7 @@ class AppProcess:
         log.debug("process.started")
 
         async with DefaultSignalsHandler(
-            [signal.SIGINT, signal.SIGTERM, signal.SIGBREAK], lambda: stop_flag.set()
+            [signal.SIGINT, signal.SIGTERM], lambda: stop_flag.set()
         ):
             produce_logs_task = asyncio.create_task(self._produce_logs(self._process))
             stop_flag_task = asyncio.create_task(stop_flag.wait(), name="stop")

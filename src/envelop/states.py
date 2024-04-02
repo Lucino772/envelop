@@ -30,3 +30,11 @@ class ProcessStatus(_BaseState):
     name = "/process/status"
 
     description: str = Field(default="Unknown")
+
+
+class PlayersState(_BaseState):
+    name = "/player/list"
+
+    player_count: int
+    max_players: int
+    players: list[str]

@@ -14,6 +14,16 @@ def read_exactly(buffer: IO[bytes], n: int) -> bytes:
     return data
 
 
+def read_null_terminated_string(buffer: IO[bytes], encoding: str = "utf-8") -> str:
+    res = b""
+    char = read_exactly(buffer, 1)
+    while char != b"\0":
+        res += char
+        char = read_exactly(buffer, 1)
+
+    return res.decode(encoding)
+
+
 def write_varint(buffer: IO[bytes], value: int) -> None:
     buff = []
     while True:

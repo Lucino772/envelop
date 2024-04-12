@@ -49,6 +49,9 @@ class Runnable(Protocol):
 
 
 class Context(Protocol):
+    def wait_process(self) -> Coroutine[None, None, None]:
+        ...
+
     def iter_logs(self) -> AsyncIterator[str]:
         ...
 

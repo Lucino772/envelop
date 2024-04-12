@@ -55,8 +55,12 @@ class AppContext:
         self._events: Producer[Event] = event_producer
         self._logs: Producer[str] = log_producer
         self._process: Process | None = None
+        self._process_stopped: asyncio.Event = asyncio.Event()
         self._tasks: list[asyncio.Task] = []
         self._store: Store = store
+
+    async def wait_process(self) -> None:
+        await self._process_stopped.wait()
 
     def iter_logs(self) -> AsyncIterator[str]:
         return aiter(self._logs)
@@ -121,6 +125,7 @@ class AppContext:
             self._process = process
             await self._process.run()
         finally:
+            self._process_stopped.set()
             await self._cleanup_tasks()
             log.debug("app.tasks.stopped")
             await server.stop(10)

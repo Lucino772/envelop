@@ -1,0 +1,13 @@
+syntax = "proto3";
+
+service Rcon {
+    rpc SendCommand (RconCommand) returns (RconResponse);
+}
+
+message RconCommand {
+    string value = 1;
+}
+
+message RconResponse {
+    string value = 1;
+}

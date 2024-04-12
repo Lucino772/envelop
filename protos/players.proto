@@ -1,0 +1,18 @@
+syntax = "proto3";
+
+package envelop.grpc;
+
+import "google/protobuf/empty.proto";
+
+service Players {
+    rpc ListPlayers (google.protobuf.Empty) returns (PlayerList);
+    rpc StreamPlayers (google.protobuf.Empty) returns (stream PlayerList);
+}
+
+message Player {
+    string name = 1;
+}
+
+message PlayerList {
+    repeated Player players  = 1;
+}

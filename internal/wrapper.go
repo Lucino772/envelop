@@ -66,7 +66,7 @@ func (wrapper *Wrapper) Write(value string) (int, error) {
 	return wrapper.stdinWriter.Write([]byte(fmt.Sprintf("%s\n", value)))
 }
 
-func (wrapper *Wrapper) Run() {
+func (wrapper *Wrapper) Run(ctx context.Context) {
 	defer wrapper.stdinWriter.Close()
 	wrapper.cmd.Dir = wrapper.Dir
 	wrapper.cmd.Env = wrapper.Env
@@ -77,6 +77,9 @@ func (wrapper *Wrapper) Run() {
 	go wrapper.produceLogs()
 
 	select {
+	case <-ctx.Done():
+		wrapper.gracefulStop(statusChan)
+		wrapper.cmd.Stop()
 	case <-signalChan:
 		wrapper.gracefulStop(statusChan)
 		wrapper.cmd.Stop()

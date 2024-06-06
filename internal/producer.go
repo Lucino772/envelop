@@ -71,21 +71,30 @@ func (producer *Producer[T]) Close() {
 	}
 }
 
-func (producer *Producer[T]) Run() {
-	var wg sync.WaitGroup
-	for msg := range producer.incoming {
-		for _, channel := range producer.subs {
-			wg.Add(1)
-			producer.publishMessageToChannel(channel, msg, &wg)
+func (producer *Producer[T]) Run(ctx context.Context) {
+	for {
+		select {
+		case msg, ok := <-producer.incoming:
+			if !ok {
+				return
+			}
+			var wg sync.WaitGroup
+			for _, channel := range producer.subs {
+				wg.Add(1)
+				go producer.publishMessageToChannel(ctx, channel, msg, &wg)
+			}
+			wg.Wait()
+		case <-ctx.Done():
+			return
 		}
 	}
-	wg.Wait()
 }
 
-func (producer *Producer[T]) publishMessageToChannel(channel chan<- T, msg T, wg *sync.WaitGroup) {
-	ctx, cancel := context.WithTimeout(context.TODO(), 5*time.Second)
-	defer cancel()
+func (producer *Producer[T]) publishMessageToChannel(ctx context.Context, channel chan<- T, msg T, wg *sync.WaitGroup) {
 	defer wg.Done()
+
+	ctx, cancel := context.WithTimeout(ctx, 5*time.Second)
+	defer cancel()
 
 	select {
 	case channel <- msg:

@@ -10,4 +10,5 @@ func NewCoreModule() *coreModule {
 
 func (mod *coreModule) Register(wrapper wrapper.WrapperRegistrar) {
 	wrapper.AddService(NewCoreSystemService())
+	wrapper.AddService(NewCoreProcessService())
 }

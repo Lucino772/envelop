@@ -1,10 +1,9 @@
-package wrapper
+package internal
 
 import (
 	"context"
 	"fmt"
 	"io"
-	"log"
 	"os"
 	"os/signal"
 	"sync"
@@ -24,9 +23,10 @@ type Wrapper struct {
 	stdinReader     io.Reader
 	stdinWriter     io.WriteCloser
 	gracefulStopper WrapperStopper
+	logsProducer    *Producer[string]
 }
 
-func NewGracefulSignalWrapper(stopSignal os.Signal, program string, args ...string) (*Wrapper, error) {
+func NewGracefulSignalWrapper(stopSignal os.Signal, producer *Producer[string], program string, args ...string) (*Wrapper, error) {
 	stdinReader, stdinWriter, err := os.Pipe()
 	if err != nil {
 		return nil, err
@@ -40,10 +40,11 @@ func NewGracefulSignalWrapper(stopSignal os.Signal, program string, args ...stri
 		stdinReader:     stdinReader,
 		stdinWriter:     stdinWriter,
 		gracefulStopper: withGracefulSignal(stopSignal),
+		logsProducer:    producer,
 	}, nil
 }
 
-func NewGracefulCommandWrapper(stopCommand string, program string, args ...string) (*Wrapper, error) {
+func NewGracefulCommandWrapper(stopCommand string, producer *Producer[string], program string, args ...string) (*Wrapper, error) {
 	stdinReader, stdinWriter, err := os.Pipe()
 	if err != nil {
 		return nil, err
@@ -57,6 +58,7 @@ func NewGracefulCommandWrapper(stopCommand string, program string, args ...strin
 		stdinReader:     stdinReader,
 		stdinWriter:     stdinWriter,
 		gracefulStopper: WithGracefulCommand(stopCommand),
+		logsProducer:    producer,
 	}, nil
 }
 
@@ -119,19 +121,18 @@ func (wrapper *Wrapper) gracefulStop(statusChan <-chan cmd.Status) (bool, error)
 }
 
 func (wrapper *Wrapper) produceLogs() {
-	// TODO: Replace log with pubsub model
 	var wg sync.WaitGroup
 	wg.Add(2)
 	go func() {
 		defer wg.Done()
 		for value := range wrapper.cmd.Stdout {
-			log.Println(value)
+			wrapper.logsProducer.Publish(value)
 		}
 	}()
 	go func() {
 		defer wg.Done()
 		for value := range wrapper.cmd.Stderr {
-			log.Println(value)
+			wrapper.logsProducer.Publish(value)
 		}
 	}()
 	wg.Wait()

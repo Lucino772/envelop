@@ -72,6 +72,7 @@ func (producer *Producer[T]) Close() {
 }
 
 func (producer *Producer[T]) Run(ctx context.Context) {
+	defer producer.Close()
 	for {
 		select {
 		case msg, ok := <-producer.incoming:

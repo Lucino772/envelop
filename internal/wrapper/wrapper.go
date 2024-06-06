@@ -5,22 +5,25 @@ import (
 	"net"
 
 	"github.com/Lucino772/envelop/internal"
+	pb "github.com/Lucino772/envelop/pkg/protobufs"
 	"google.golang.org/grpc"
 )
 
 type DefaultWrapper struct {
-	process      *WrapperProcess
-	logsProducer *internal.Producer[string]
-	services     []WrapperService
-	tasks        []WrapperTask
+	process        *WrapperProcess
+	logsProducer   *internal.Producer[string]
+	eventsProducer *internal.Producer[*pb.Event]
+	services       []WrapperService
+	tasks          []WrapperTask
 }
 
-func NewDefaultWrapper(process *WrapperProcess, logsProducer *internal.Producer[string]) *DefaultWrapper {
+func NewDefaultWrapper(process *WrapperProcess, logsProducer *internal.Producer[string], eventsProducer *internal.Producer[*pb.Event]) *DefaultWrapper {
 	return &DefaultWrapper{
-		process:      process,
-		logsProducer: logsProducer,
-		services:     make([]WrapperService, 0),
-		tasks:        make([]WrapperTask, 0),
+		process:        process,
+		logsProducer:   logsProducer,
+		eventsProducer: eventsProducer,
+		services:       make([]WrapperService, 0),
+		tasks:          make([]WrapperTask, 0),
 	}
 }
 
@@ -41,11 +44,15 @@ func (wp *DefaultWrapper) GetLogsProducer() *internal.Producer[string] {
 	return wp.logsProducer
 }
 
+func (wp *DefaultWrapper) GetEventsProducer() *internal.Producer[*pb.Event] {
+	return wp.eventsProducer
+}
+
 func (wp *DefaultWrapper) Run(parent context.Context) error {
 	ctx, cancel := context.WithCancel(parent)
 	defer cancel()
 
-	wp.tasks = append(wp.tasks, wp.logsProducer)
+	wp.tasks = append(wp.tasks, wp.logsProducer, wp.eventsProducer)
 	grpcServer, err := wp.startGrpc()
 	if err != nil {
 		return err
@@ -63,7 +70,10 @@ func (wp *DefaultWrapper) startGrpc() (*grpc.Server, error) {
 	if err != nil {
 		return nil, err
 	}
-	grpcServer := grpc.NewServer()
+	grpcServer := grpc.NewServer(
+		grpc.UnaryInterceptor(getGrpcUnaryInterceptor(wp)),
+		grpc.StreamInterceptor(getGrpcStreamInterceptor(wp)),
+	)
 	for _, service := range wp.services {
 		service.Register(grpcServer)
 	}

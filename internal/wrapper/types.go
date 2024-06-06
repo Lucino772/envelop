@@ -4,6 +4,7 @@ import (
 	"context"
 
 	"github.com/Lucino772/envelop/internal"
+	pb "github.com/Lucino772/envelop/pkg/protobufs"
 	"google.golang.org/grpc"
 )
 
@@ -26,5 +27,6 @@ type WrapperModule interface {
 
 type Wrapper interface {
 	WriteCommand(string)
-	GetLogsProducer() internal.Producer[string]
+	GetLogsProducer() *internal.Producer[string]
+	GetEventsProducer() *internal.Producer[*pb.Event]
 }

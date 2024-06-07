@@ -48,6 +48,14 @@ func (wp *DefaultWrapper) WriteCommand(command string) error {
 	return err
 }
 
+func (wp *DefaultWrapper) SubscribeLogs() WrapperSubscriber[string] {
+	return wp.logsProducer.Subscribe()
+}
+
+func (wp *DefaultWrapper) SubscribeEvents() WrapperSubscriber[Event] {
+	return wp.eventsProducer.Subscribe()
+}
+
 func (wp *DefaultWrapper) PublishEvent(event WrapperEvent) {
 	wp.eventsProducer.Publish(Event{
 		Id:        "", // TODO: Get Unique ID
@@ -55,14 +63,6 @@ func (wp *DefaultWrapper) PublishEvent(event WrapperEvent) {
 		Name:      event.GetEventName(),
 		Data:      event,
 	})
-}
-
-func (wp *DefaultWrapper) GetLogsProducer() *internal.Producer[string] {
-	return wp.logsProducer
-}
-
-func (wp *DefaultWrapper) GetEventsProducer() *internal.Producer[Event] {
-	return wp.eventsProducer
 }
 
 func (wp *DefaultWrapper) GetProcessStatusState() WrapperStateAccessor[ProcessStatusState] {

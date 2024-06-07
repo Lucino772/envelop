@@ -23,11 +23,10 @@ func (service *coreSystemService) StreamEvents(_ *emptypb.Empty, stream pb.Syste
 	if !ok {
 		return errors.New("wrapper is not in context")
 	}
-	producer := wp.GetEventsProducer()
-	channel := producer.Subscribe()
-	defer producer.Unsubscribe(channel)
+	sub := wp.SubscribeEvents()
+	defer sub.Unsubscribe()
 
-	for event := range channel {
+	for event := range sub.Messages() {
 		evData, err := json.Marshal(event.Data)
 		if err != nil {
 			return err

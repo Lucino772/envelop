@@ -34,11 +34,10 @@ func (service *coreProcessService) StreamLogs(_ *emptypb.Empty, stream pb.Proces
 	if !ok {
 		return errors.New("wrapper is not in context")
 	}
-	producer := wp.GetLogsProducer()
-	channel := producer.Subscribe()
-	defer producer.Unsubscribe(channel)
+	sub := wp.SubscribeLogs()
+	defer sub.Unsubscribe()
 
-	for log := range channel {
+	for log := range sub.Messages() {
 		if err := stream.Send(&pb.Log{Value: log}); err != nil {
 			return err
 		}

@@ -3,7 +3,6 @@ package wrapper
 import (
 	"context"
 
-	"github.com/Lucino772/envelop/internal"
 	"google.golang.org/grpc"
 )
 
@@ -37,11 +36,16 @@ type WrapperStateAccessor[T WrapperState] interface {
 	Set(T)
 }
 
+type WrapperSubscriber[T interface{}] interface {
+	Messages() <-chan T
+	Unsubscribe()
+}
+
 type Wrapper interface {
 	WriteCommand(string) error
+	SubscribeLogs() WrapperSubscriber[string]
+	SubscribeEvents() WrapperSubscriber[Event]
 	PublishEvent(WrapperEvent)
-	GetLogsProducer() *internal.Producer[string]
-	GetEventsProducer() *internal.Producer[Event]
 
 	// States
 	GetProcessStatusState() WrapperStateAccessor[ProcessStatusState]

@@ -6,31 +6,35 @@ import (
 	"time"
 )
 
+type subscriber[T interface{}] struct {
+	messages chan T
+	producer *Producer[T]
+}
+
 type Producer[T interface{}] struct {
-	mu       sync.Mutex
-	incoming chan T
-	subs     []chan T
-	closed   bool
+	mu          sync.Mutex
+	incoming    chan T
+	subscribers []*subscriber[T]
+	closed      bool
 }
 
 func NewProducer[T interface{}]() *Producer[T] {
 	return &Producer[T]{
-		subs:     make([]chan T, 0),
-		incoming: make(chan T, 5),
-		closed:   false,
+		subscribers: make([]*subscriber[T], 0),
+		incoming:    make(chan T, 5),
+		closed:      false,
 	}
 }
 
 func (producer *Producer[T]) Publish(msg T) {
 	producer.mu.Lock()
 	defer producer.mu.Unlock()
-	if producer.closed {
-		return
+	if !producer.closed {
+		producer.incoming <- msg
 	}
-	producer.incoming <- msg
 }
 
-func (producer *Producer[T]) Subscribe() <-chan T {
+func (producer *Producer[T]) Subscribe() *subscriber[T] {
 	producer.mu.Lock()
 	defer producer.mu.Unlock()
 
@@ -38,22 +42,11 @@ func (producer *Producer[T]) Subscribe() <-chan T {
 		return nil
 	}
 
-	ch := make(chan T)
-	producer.subs = append(producer.subs, ch)
-	return ch
-}
-
-func (producer *Producer[T]) Unsubscribe(channel <-chan T) {
-	producer.mu.Lock()
-	defer producer.mu.Unlock()
-
-	for ix, sub := range producer.subs[:] {
-		if sub == channel {
-			producer.subs[ix] = producer.subs[len(producer.subs)-1]
-			producer.subs = producer.subs[:len(producer.subs)-1]
-			close(sub)
-		}
+	subscriber := &subscriber[T]{
+		messages: make(chan T),
 	}
+	producer.subscribers = append(producer.subscribers, subscriber)
+	return subscriber
 }
 
 func (producer *Producer[T]) Close() {
@@ -66,8 +59,8 @@ func (producer *Producer[T]) Close() {
 
 	producer.closed = true
 	close(producer.incoming)
-	for _, ch := range producer.subs {
-		close(ch)
+	for _, sub := range producer.subscribers[:] {
+		sub.Unsubscribe()
 	}
 }
 
@@ -80,9 +73,9 @@ func (producer *Producer[T]) Run(ctx context.Context) {
 				return
 			}
 			var wg sync.WaitGroup
-			for _, channel := range producer.subs {
+			for _, sub := range producer.subscribers {
 				wg.Add(1)
-				go producer.publishMessageToChannel(ctx, channel, msg, &wg)
+				go sub.sendWithTimeout(ctx, msg, &wg)
 			}
 			wg.Wait()
 		case <-ctx.Done():
@@ -91,14 +84,34 @@ func (producer *Producer[T]) Run(ctx context.Context) {
 	}
 }
 
-func (producer *Producer[T]) publishMessageToChannel(ctx context.Context, channel chan<- T, msg T, wg *sync.WaitGroup) {
-	defer wg.Done()
+func (sub *subscriber[T]) Messages() <-chan T {
+	return sub.messages
+}
 
+func (sub *subscriber[T]) Unsubscribe() {
+	sub.producer.removeSubscriber(sub)
+	close(sub.messages)
+}
+
+func (producer *Producer[T]) removeSubscriber(subscriber *subscriber[T]) {
+	producer.mu.Lock()
+	defer producer.mu.Unlock()
+
+	for ix, sub := range producer.subscribers[:] {
+		if sub == subscriber {
+			producer.subscribers[ix] = producer.subscribers[len(producer.subscribers)-1]
+			producer.subscribers = producer.subscribers[:len(producer.subscribers)-1]
+		}
+	}
+}
+
+func (sub *subscriber[T]) sendWithTimeout(ctx context.Context, message T, wg *sync.WaitGroup) {
+	defer wg.Done()
 	ctx, cancel := context.WithTimeout(ctx, 5*time.Second)
 	defer cancel()
 
 	select {
-	case channel <- msg:
+	case sub.messages <- message:
 		return
 	case <-ctx.Done():
 		return

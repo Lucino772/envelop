@@ -3,22 +3,28 @@ package wrapper
 import (
 	"context"
 	"net"
+	"time"
 
 	"github.com/Lucino772/envelop/internal"
-	pb "github.com/Lucino772/envelop/pkg/protobufs"
 	"google.golang.org/grpc"
 )
 
 type DefaultWrapper struct {
+	ProcessStatusState WrapperStateAccessor[ProcessStatusState]
+
 	process        *WrapperProcess
 	logsProducer   *internal.Producer[string]
-	eventsProducer *internal.Producer[*pb.Event]
+	eventsProducer *internal.Producer[Event]
 	services       []WrapperService
 	tasks          []WrapperTask
 }
 
-func NewDefaultWrapper(process *WrapperProcess, logsProducer *internal.Producer[string], eventsProducer *internal.Producer[*pb.Event]) *DefaultWrapper {
+func NewDefaultWrapper(process *WrapperProcess, logsProducer *internal.Producer[string], eventsProducer *internal.Producer[Event]) *DefaultWrapper {
 	return &DefaultWrapper{
+		ProcessStatusState: NewWrapperStateAccessor(eventsProducer, ProcessStatusState{
+			Description: "Unknown",
+		}),
+
 		process:        process,
 		logsProducer:   logsProducer,
 		eventsProducer: eventsProducer,
@@ -40,11 +46,20 @@ func (wp *DefaultWrapper) WriteCommand(command string) error {
 	return err
 }
 
+func (wp *DefaultWrapper) PublishEvent(event WrapperEvent) {
+	wp.eventsProducer.Publish(Event{
+		Id:        "", // TODO: Get Unique ID
+		Timestamp: time.Now().Unix(),
+		Name:      event.GetEventName(),
+		Data:      event,
+	})
+}
+
 func (wp *DefaultWrapper) GetLogsProducer() *internal.Producer[string] {
 	return wp.logsProducer
 }
 
-func (wp *DefaultWrapper) GetEventsProducer() *internal.Producer[*pb.Event] {
+func (wp *DefaultWrapper) GetEventsProducer() *internal.Producer[Event] {
 	return wp.eventsProducer
 }
 

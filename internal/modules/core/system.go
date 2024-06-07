@@ -1,6 +1,7 @@
 package core
 
 import (
+	"encoding/json"
 	"errors"
 
 	"github.com/Lucino772/envelop/internal/wrapper"
@@ -27,7 +28,16 @@ func (service *coreSystemService) StreamEvents(_ *emptypb.Empty, stream pb.Syste
 	defer producer.Unsubscribe(channel)
 
 	for event := range channel {
-		if err := stream.Send(event); err != nil {
+		evData, err := json.Marshal(event.Data)
+		if err != nil {
+			return err
+		}
+		grpcEvent := pb.Event{
+			Id:   event.Id,
+			Name: event.Name,
+			Data: evData,
+		}
+		if err := stream.Send(&grpcEvent); err != nil {
 			return err
 		}
 	}

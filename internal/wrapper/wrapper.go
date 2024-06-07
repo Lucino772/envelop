@@ -10,26 +10,28 @@ import (
 )
 
 type DefaultWrapper struct {
-	ProcessStatusState WrapperStateAccessor[ProcessStatusState]
-
 	process        *WrapperProcess
 	logsProducer   *internal.Producer[string]
 	eventsProducer *internal.Producer[Event]
 	services       []WrapperService
 	tasks          []WrapperTask
+
+	// States
+	processStatusState WrapperStateAccessor[ProcessStatusState]
 }
 
 func NewDefaultWrapper(process *WrapperProcess, logsProducer *internal.Producer[string], eventsProducer *internal.Producer[Event]) *DefaultWrapper {
 	return &DefaultWrapper{
-		ProcessStatusState: NewWrapperStateAccessor(eventsProducer, ProcessStatusState{
-			Description: "Unknown",
-		}),
-
 		process:        process,
 		logsProducer:   logsProducer,
 		eventsProducer: eventsProducer,
 		services:       make([]WrapperService, 0),
 		tasks:          make([]WrapperTask, 0),
+
+		// States
+		processStatusState: NewWrapperStateAccessor(eventsProducer, ProcessStatusState{
+			Description: "Unknown",
+		}),
 	}
 }
 
@@ -61,6 +63,10 @@ func (wp *DefaultWrapper) GetLogsProducer() *internal.Producer[string] {
 
 func (wp *DefaultWrapper) GetEventsProducer() *internal.Producer[Event] {
 	return wp.eventsProducer
+}
+
+func (wp *DefaultWrapper) GetProcessStatusState() WrapperStateAccessor[ProcessStatusState] {
+	return wp.processStatusState
 }
 
 func (wp *DefaultWrapper) Run(parent context.Context) error {

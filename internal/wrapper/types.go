@@ -42,4 +42,7 @@ type Wrapper interface {
 	PublishEvent(WrapperEvent)
 	GetLogsProducer() *internal.Producer[string]
 	GetEventsProducer() *internal.Producer[Event]
+
+	// States
+	GetProcessStatusState() WrapperStateAccessor[ProcessStatusState]
 }

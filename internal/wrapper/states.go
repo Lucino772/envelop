@@ -42,6 +42,7 @@ func (wsa *wrapperStateAccessor[T]) Set(state T) {
 	}
 	wsa.eventsProducer.Publish(Event{
 		Id:        "", // TODO: Get unique ID
+		Name:      event.GetEventName(),
 		Timestamp: time.Now().Unix(),
 		Data:      event,
 	})

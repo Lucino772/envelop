@@ -19,7 +19,7 @@ func NewCoreProcessService() *coreProcessService {
 }
 
 func (service *coreProcessService) WriteCommand(ctx context.Context, request *pb.Command) (*emptypb.Empty, error) {
-	wp, ok := wrapper.FromIncomingGrpcContext(ctx)
+	wp, ok := wrapper.FromIncomingContext(ctx)
 	if !ok {
 		return nil, errors.New("wrapper is not in context")
 	}
@@ -30,7 +30,7 @@ func (service *coreProcessService) WriteCommand(ctx context.Context, request *pb
 }
 
 func (service *coreProcessService) StreamLogs(_ *emptypb.Empty, stream pb.Process_StreamLogsServer) error {
-	wp, ok := wrapper.FromIncomingGrpcContext(stream.Context())
+	wp, ok := wrapper.FromIncomingContext(stream.Context())
 	if !ok {
 		return errors.New("wrapper is not in context")
 	}

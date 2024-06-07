@@ -70,7 +70,7 @@ func (wp *DefaultWrapper) GetProcessStatusState() WrapperStateAccessor[ProcessSt
 }
 
 func (wp *DefaultWrapper) Run(parent context.Context) error {
-	ctx, cancel := context.WithCancel(parent)
+	ctx, cancel := context.WithCancel(NewIncomingContext(parent, wp))
 	defer cancel()
 
 	wp.tasks = append(wp.tasks, wp.logsProducer, wp.eventsProducer)

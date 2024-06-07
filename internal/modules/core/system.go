@@ -19,7 +19,7 @@ func NewCoreSystemService() *coreSystemService {
 }
 
 func (service *coreSystemService) StreamEvents(_ *emptypb.Empty, stream pb.System_StreamEventsServer) error {
-	wp, ok := wrapper.FromIncomingGrpcContext(stream.Context())
+	wp, ok := wrapper.FromIncomingContext(stream.Context())
 	if !ok {
 		return errors.New("wrapper is not in context")
 	}

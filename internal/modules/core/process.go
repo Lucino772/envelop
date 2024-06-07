@@ -18,6 +18,43 @@ func NewCoreProcessService() *coreProcessService {
 	return &coreProcessService{}
 }
 
+func (service *coreProcessService) GetStatus(ctx context.Context, _ *emptypb.Empty) (*pb.Status, error) {
+	wp, ok := wrapper.FromIncomingContext(ctx)
+	if !ok {
+		return nil, errors.New("wrapper is not in context")
+	}
+	state := wp.GetProcessStatusState().Get()
+	return &pb.Status{
+		Value: state.Description,
+	}, nil
+}
+
+func (service *coreProcessService) StreamStatus(_ *emptypb.Empty, stream pb.Process_StreamStatusServer) error {
+	wp, ok := wrapper.FromIncomingContext(stream.Context())
+	if !ok {
+		return errors.New("wrapper is not in context")
+	}
+
+	sub := wp.SubscribeEvents()
+	defer sub.Unsubscribe()
+
+	for event := range sub.Messages() {
+		if event.Name == "/state/update" {
+			if eventData, ok := event.Data.(wrapper.StateUpdateEvent); ok {
+				if state, ok := eventData.Data.(wrapper.ProcessStatusState); ok {
+					status := &pb.Status{
+						Value: state.Description,
+					}
+					if err := stream.Send(status); err != nil {
+						return err
+					}
+				}
+			}
+		}
+	}
+	return nil
+}
+
 func (service *coreProcessService) WriteCommand(ctx context.Context, request *pb.Command) (*emptypb.Empty, error) {
 	wp, ok := wrapper.FromIncomingContext(ctx)
 	if !ok {

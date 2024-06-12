@@ -19,13 +19,13 @@ func (w *defaultGrpcWrappedStream) Context() context.Context {
 	return w.ctx
 }
 
-func getGrpcUnaryInterceptor(wp *DefaultWrapper) func(parent context.Context, req any, _ *grpc.UnaryServerInfo, handler grpc.UnaryHandler) (any, error) {
+func getGrpcUnaryInterceptor(wp *Wrapper) func(parent context.Context, req any, _ *grpc.UnaryServerInfo, handler grpc.UnaryHandler) (any, error) {
 	return func(ctx context.Context, req any, _ *grpc.UnaryServerInfo, handler grpc.UnaryHandler) (any, error) {
 		return handler(NewIncomingContext(ctx, wp), req)
 	}
 }
 
-func getGrpcStreamInterceptor(wp *DefaultWrapper) func(srv any, ss grpc.ServerStream, _ *grpc.StreamServerInfo, handler grpc.StreamHandler) error {
+func getGrpcStreamInterceptor(wp *Wrapper) func(srv any, ss grpc.ServerStream, _ *grpc.StreamServerInfo, handler grpc.StreamHandler) error {
 	return func(srv any, ss grpc.ServerStream, _ *grpc.StreamServerInfo, handler grpc.StreamHandler) error {
 		return handler(
 			srv, newDefaultGrpcWrappedStream(NewIncomingContext(ss.Context(), wp), ss),

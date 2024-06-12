@@ -6,9 +6,7 @@ import (
 	"google.golang.org/grpc"
 )
 
-type WrapperTask interface {
-	Run(context.Context)
-}
+type WrapperTask func(context.Context)
 
 type WrapperService interface {
 	Register(grpc.ServiceRegistrar)
@@ -29,6 +27,7 @@ type WrapperEvent interface {
 
 type WrapperState interface {
 	GetStateName() string
+	Equals(WrapperState) bool
 }
 
 type WrapperStateAccessor[T WrapperState] interface {
@@ -39,14 +38,4 @@ type WrapperStateAccessor[T WrapperState] interface {
 type WrapperSubscriber[T interface{}] interface {
 	Messages() <-chan T
 	Unsubscribe()
-}
-
-type Wrapper interface {
-	WriteCommand(string) error
-	SubscribeLogs() WrapperSubscriber[string]
-	SubscribeEvents() WrapperSubscriber[Event]
-	PublishEvent(WrapperEvent)
-
-	// States
-	GetProcessStatusState() WrapperStateAccessor[ProcessStatusState]
 }

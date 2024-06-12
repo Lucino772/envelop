@@ -34,22 +34,22 @@ func (task *checkMinecraftStatusTask) processSubexpNames(regex *regexp.Regexp, m
 	return result
 }
 
-func (task *checkMinecraftStatusTask) processValue(wp wrapper.Wrapper, value string) {
+func (task *checkMinecraftStatusTask) processValue(wp *wrapper.Wrapper, value string) {
 	if matches := task.serverStartingRegex.FindStringSubmatch(value); matches != nil {
-		wp.GetProcessStatusState().Set(wrapper.ProcessStatusState{
+		wp.ProcessStatusState.Set(wrapper.ProcessStatusState{
 			Description: "Starting",
 		})
 	} else if matches := task.serverPreparingRegex.FindStringSubmatch(value); matches != nil {
 		groups := task.processSubexpNames(task.serverPreparingRegex, matches)
-		wp.GetProcessStatusState().Set(wrapper.ProcessStatusState{
+		wp.ProcessStatusState.Set(wrapper.ProcessStatusState{
 			Description: fmt.Sprintf("Preparing (%s%%)", groups["progress"]),
 		})
 	} else if matches := task.serverReadyRegex.FindStringSubmatch(value); matches != nil {
-		wp.GetProcessStatusState().Set(wrapper.ProcessStatusState{
+		wp.ProcessStatusState.Set(wrapper.ProcessStatusState{
 			Description: "Ready",
 		})
 	} else if matches := task.serverStoppingRegex.FindStringSubmatch(value); matches != nil {
-		wp.GetProcessStatusState().Set(wrapper.ProcessStatusState{
+		wp.ProcessStatusState.Set(wrapper.ProcessStatusState{
 			Description: "Stopping",
 		})
 	}

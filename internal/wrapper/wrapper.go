@@ -2,61 +2,101 @@ package wrapper
 
 import (
 	"context"
+	"fmt"
+	"io"
 	"net"
+	"os"
+	"os/signal"
+	"sync"
 	"time"
 
 	"github.com/Lucino772/envelop/internal/utils"
+	"github.com/go-cmd/cmd"
 	"google.golang.org/grpc"
 )
 
-type DefaultWrapper struct {
-	process        *WrapperProcess
+type Wrapper struct {
+	ProcessStatusState WrapperStateAccessor[ProcessStatusState]
+
+	options        wrapperOptions
+	cmd            *cmd.Cmd
+	stdinReader    io.Reader
+	stdinWriter    io.WriteCloser
 	logsProducer   *utils.Producer[string]
 	eventsProducer *utils.Producer[Event]
-	services       []WrapperService
-	tasks          []WrapperTask
-
-	// States
-	processStatusState WrapperStateAccessor[ProcessStatusState]
 }
 
-func NewDefaultWrapper(process *WrapperProcess, logsProducer *utils.Producer[string], eventsProducer *utils.Producer[Event]) *DefaultWrapper {
-	return &DefaultWrapper{
-		process:        process,
-		logsProducer:   logsProducer,
-		eventsProducer: eventsProducer,
-		services:       make([]WrapperService, 0),
-		tasks:          make([]WrapperTask, 0),
+type wrapperStateProperty[T WrapperState] struct {
+	stateObj T
+	mu       sync.Mutex
+	notify   func(WrapperState)
+}
 
-		// States
-		processStatusState: NewWrapperStateAccessor(eventsProducer, ProcessStatusState{
-			Description: "Unknown",
-		}),
+func newWrapperStateProperty[T WrapperState](initialState T, notify func(WrapperState)) *wrapperStateProperty[T] {
+	return &wrapperStateProperty[T]{
+		stateObj: initialState,
+		notify:   notify,
 	}
 }
 
-func (wp *DefaultWrapper) AddService(service WrapperService) {
-	wp.services = append(wp.services, service)
+func (property *wrapperStateProperty[T]) Get() T {
+	return property.stateObj
 }
 
-func (wp *DefaultWrapper) AddTask(task WrapperTask) {
-	wp.tasks = append(wp.tasks, task)
+func (property *wrapperStateProperty[T]) Set(state T) {
+	property.mu.Lock()
+	defer property.mu.Unlock()
+	if !property.stateObj.Equals(state) {
+		property.stateObj = state
+		property.notify(state)
+	}
 }
 
-func (wp *DefaultWrapper) WriteCommand(command string) error {
-	_, err := wp.process.Write(command)
+func NewWrapper(program string, args []string, opts ...WrapperOptFunc) (*Wrapper, error) {
+	stdinReader, stdinWriter, err := os.Pipe()
+	if err != nil {
+		return nil, err
+	}
+	options := defaultOptions()
+	for _, opt := range opts {
+		opt(&options)
+	}
+
+	command := cmd.NewCmdOptions(cmd.Options{
+		Buffered:  false,
+		Streaming: true,
+	}, program, args...)
+	command.Dir = options.dir
+	command.Env = options.env
+
+	wrapper := &Wrapper{
+		options:        options,
+		cmd:            command,
+		stdinReader:    stdinReader,
+		stdinWriter:    stdinWriter,
+		logsProducer:   utils.NewProducer[string](),
+		eventsProducer: utils.NewProducer[Event](),
+	}
+	wrapper.ProcessStatusState = newWrapperStateProperty(ProcessStatusState{
+		Description: "Unknown",
+	}, wrapper.updateState)
+	return wrapper, nil
+}
+
+func (wp *Wrapper) WriteCommand(command string) error {
+	_, err := wp.stdinWriter.Write([]byte(fmt.Sprintf("%s\n", command)))
 	return err
 }
 
-func (wp *DefaultWrapper) SubscribeLogs() WrapperSubscriber[string] {
+func (wp *Wrapper) SubscribeLogs() WrapperSubscriber[string] {
 	return wp.logsProducer.Subscribe()
 }
 
-func (wp *DefaultWrapper) SubscribeEvents() WrapperSubscriber[Event] {
+func (wp *Wrapper) SubscribeEvents() WrapperSubscriber[Event] {
 	return wp.eventsProducer.Subscribe()
 }
 
-func (wp *DefaultWrapper) PublishEvent(event WrapperEvent) {
+func (wp *Wrapper) PublishEvent(event WrapperEvent) {
 	wp.eventsProducer.Publish(Event{
 		Id:        "", // TODO: Get Unique ID
 		Timestamp: time.Now().Unix(),
@@ -65,28 +105,28 @@ func (wp *DefaultWrapper) PublishEvent(event WrapperEvent) {
 	})
 }
 
-func (wp *DefaultWrapper) GetProcessStatusState() WrapperStateAccessor[ProcessStatusState] {
-	return wp.processStatusState
-}
-
-func (wp *DefaultWrapper) Run(parent context.Context) error {
+func (wp *Wrapper) Run(parent context.Context) error {
 	ctx, cancel := context.WithCancel(NewIncomingContext(parent, wp))
 	defer cancel()
 
-	wp.tasks = append(wp.tasks, wp.logsProducer, wp.eventsProducer)
+	wp.options.tasks = append(
+		wp.options.tasks,
+		wp.eventsProducer.Run,
+		wp.logsProducer.Run,
+	)
 	grpcServer, err := wp.startGrpc()
 	if err != nil {
 		return err
 	}
 	defer grpcServer.Stop()
-	for _, task := range wp.tasks {
-		go task.Run(ctx)
+	for _, task := range wp.options.tasks {
+		go task(ctx)
 	}
-	wp.process.Run(ctx)
+	wp.runProcess(ctx)
 	return nil
 }
 
-func (wp *DefaultWrapper) startGrpc() (*grpc.Server, error) {
+func (wp *Wrapper) startGrpc() (*grpc.Server, error) {
 	lis, err := net.Listen("tcp", "0.0.0.0:8791")
 	if err != nil {
 		return nil, err
@@ -95,9 +135,70 @@ func (wp *DefaultWrapper) startGrpc() (*grpc.Server, error) {
 		grpc.UnaryInterceptor(getGrpcUnaryInterceptor(wp)),
 		grpc.StreamInterceptor(getGrpcStreamInterceptor(wp)),
 	)
-	for _, service := range wp.services {
+	for _, service := range wp.options.services {
 		service.Register(grpcServer)
 	}
 	go grpcServer.Serve(lis)
 	return grpcServer, nil
+}
+
+func (wp *Wrapper) runProcess(ctx context.Context) {
+	defer wp.stdinWriter.Close()
+	signalChan := make(chan os.Signal, 1)
+	signal.Notify(signalChan, os.Interrupt)
+	statusChan := wp.cmd.StartWithStdin(wp.stdinReader)
+	go wp.produceLogs()
+
+	select {
+	case <-ctx.Done():
+		wp.gracefulStop(statusChan)
+		wp.cmd.Stop()
+	case <-signalChan:
+		wp.gracefulStop(statusChan)
+		wp.cmd.Stop()
+	case <-statusChan:
+		signal.Stop(signalChan)
+	}
+}
+
+func (wp *Wrapper) gracefulStop(statusChan <-chan cmd.Status) (bool, error) {
+	ctx, cancel := context.WithTimeout(context.Background(), wp.options.gracefulTimeout)
+	defer cancel()
+
+	err := wp.options.gracefulStopper(wp)
+	if err != nil {
+		return false, err
+	}
+
+	select {
+	case <-statusChan:
+		return true, nil
+	case <-ctx.Done():
+		return false, nil
+	}
+}
+
+func (wp *Wrapper) produceLogs() {
+	var wg sync.WaitGroup
+	wg.Add(2)
+	go func() {
+		defer wg.Done()
+		for value := range wp.cmd.Stdout {
+			wp.logsProducer.Publish(value)
+		}
+	}()
+	go func() {
+		defer wg.Done()
+		for value := range wp.cmd.Stderr {
+			wp.logsProducer.Publish(value)
+		}
+	}()
+	wg.Wait()
+}
+
+func (wp *Wrapper) updateState(state WrapperState) {
+	wp.PublishEvent(StateUpdateEvent{
+		Name: state.GetStateName(),
+		Data: state,
+	})
 }

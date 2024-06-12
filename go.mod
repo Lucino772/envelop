@@ -4,6 +4,7 @@ go 1.22.3
 
 require (
 	github.com/go-cmd/cmd v1.4.2
+	github.com/google/shlex v0.0.0-20191202100458-e7afc7fbc510
 	github.com/mitchellh/mapstructure v1.5.0
 	github.com/xeipuuv/gojsonschema v1.2.0
 	google.golang.org/grpc v1.64.0

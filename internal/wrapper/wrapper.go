@@ -5,14 +5,14 @@ import (
 	"net"
 	"time"
 
-	"github.com/Lucino772/envelop/internal"
+	"github.com/Lucino772/envelop/internal/utils"
 	"google.golang.org/grpc"
 )
 
 type DefaultWrapper struct {
 	process        *WrapperProcess
-	logsProducer   *internal.Producer[string]
-	eventsProducer *internal.Producer[Event]
+	logsProducer   *utils.Producer[string]
+	eventsProducer *utils.Producer[Event]
 	services       []WrapperService
 	tasks          []WrapperTask
 
@@ -20,7 +20,7 @@ type DefaultWrapper struct {
 	processStatusState WrapperStateAccessor[ProcessStatusState]
 }
 
-func NewDefaultWrapper(process *WrapperProcess, logsProducer *internal.Producer[string], eventsProducer *internal.Producer[Event]) *DefaultWrapper {
+func NewDefaultWrapper(process *WrapperProcess, logsProducer *utils.Producer[string], eventsProducer *utils.Producer[Event]) *DefaultWrapper {
 	return &DefaultWrapper{
 		process:        process,
 		logsProducer:   logsProducer,

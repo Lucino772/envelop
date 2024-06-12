@@ -4,7 +4,7 @@ import (
 	"sync"
 	"time"
 
-	"github.com/Lucino772/envelop/internal"
+	"github.com/Lucino772/envelop/internal/utils"
 )
 
 type ProcessStatusState struct {
@@ -16,12 +16,12 @@ func (state ProcessStatusState) GetStateName() string {
 }
 
 type wrapperStateAccessor[T WrapperState] struct {
-	eventsProducer *internal.Producer[Event]
+	eventsProducer *utils.Producer[Event]
 	stateObj       T
 	mu             sync.Mutex
 }
 
-func NewWrapperStateAccessor[T WrapperState](eventsProducer *internal.Producer[Event], initialState T) *wrapperStateAccessor[T] {
+func NewWrapperStateAccessor[T WrapperState](eventsProducer *utils.Producer[Event], initialState T) *wrapperStateAccessor[T] {
 	return &wrapperStateAccessor[T]{
 		eventsProducer: eventsProducer,
 		stateObj:       initialState,

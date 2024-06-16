@@ -1,0 +1,146 @@
+{
+    "$schema": "http://json-schema.org/draft-07/schema#",
+    "type": "object",
+    "properties": {
+        "sources": {
+            "type": "array",
+            "items": {
+                "oneOf": [
+                    {
+                        "$ref": "#/definitions/file_list_source"
+                    },
+                    {
+                        "$ref": "#/definitions/archive_file_source"
+                    },
+                    {
+                        "$ref": "#/definitions/content_file_source"
+                    }
+                ]
+            }
+        },
+        "config": {
+            "type": "string"
+        }
+    },
+    "required": [
+        "sources"
+    ],
+    "definitions": {
+        "file_list_source": {
+            "type": "object",
+            "properties": {
+                "type": {
+                    "const": "files"
+                },
+                "files": {
+                    "type": "object",
+                    "additionalProperties": {
+                        "$ref": "#/definitions/file_info"
+                    }
+                },
+                "destination": {
+                    "type": "string"
+                },
+                "exports": {
+                    "$ref": "#/definitions/exports"
+                }
+            },
+            "required": [
+                "type",
+                "files"
+            ]
+        },
+        "archive_file_source": {
+            "type": "object",
+            "properties": {
+                "type": {
+                    "const": "archive"
+                },
+                "format": {
+                    "enum": [
+                        "tar:gz",
+                        "tar:bz2",
+                        "tar:xz",
+                        "zip"
+                    ]
+                },
+                "file": {
+                    "$ref": "#/definitions/file_info"
+                },
+                "destination": {
+                    "type": "string"
+                },
+                "exports": {
+                    "$ref": "#/definitions/exports"
+                }
+            },
+            "required": [
+                "type",
+                "format",
+                "file"
+            ]
+        },
+        "content_file_source": {
+            "type": "object",
+            "properties": {
+                "type": {
+                    "const": "content"
+                },
+                "files": {
+                    "type": "object",
+                    "additionalProperties": {
+                        "type": "string"
+                    }
+                },
+                "destination": {
+                    "type": "string"
+                },
+                "exports": {
+                    "$ref": "#/definitions/exports"
+                }
+            },
+            "required": [
+                "type",
+                "files"
+            ]
+        },
+        "file_info": {
+            "type": "object",
+            "properties": {
+                "url": {
+                    "type": "string"
+                },
+                "size": {
+                    "type": "integer"
+                },
+                "hash": {
+                    "type": "object",
+                    "properties": {
+                        "algo": {
+                            "enum": [
+                                "md5",
+                                "sha1",
+                                "sha256",
+                                "sha512"
+                            ]
+                        },
+                        "value": {
+                            "type": "string"
+                        }
+                    }
+                }
+            }
+        },
+        "exports": {
+            "type": "object",
+            "additionalProperties": {
+                "type": [
+                    "string",
+                    "boolean",
+                    "integer",
+                    "number"
+                ]
+            }
+        }
+    }
+}

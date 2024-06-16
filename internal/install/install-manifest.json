@@ -1,0 +1,45 @@
+{
+    "minecraft:1.16.5:vanilla": {
+        "sources": [
+            {
+                "type": "files",
+                "files": {
+                    "server-1.16.5.jar": {
+                        "url": "https://piston-data.mojang.com/v1/objects/1b557e7b033b583cd9f66746b7a9ab1ec1673ced/server.jar",
+                        "size": 37962360,
+                        "hash": {
+                            "algo": "sha1",
+                            "value": "1b557e7b033b583cd9f66746b7a9ab1ec1673ced"
+                        }
+                    }
+                },
+                "exports": {
+                    "jar": "{dest_dir}/server-1.16.5.jar"
+                }
+            },
+            {
+                "type": "content",
+                "files": {
+                    "eula.txt": "#By changing the setting below to TRUE you are indicating your agreement to our EULA (https://account.mojang.com/documents/minecraft_eula).\neula=true"
+                }
+            },
+            {
+                "type": "archive",
+                "format": "zip",
+                "file": {
+                    "url": "https://github.com/adoptium/temurin8-binaries/releases/download/jdk8u412-b08/OpenJDK8U-jre_x64_windows_hotspot_8u412b08.zip",
+                    "size": 40366972,
+                    "hash": {
+                        "algo": "sha256",
+                        "value": "3f2402cc352bbafd8c966320edbd889f227500f36bcec3d91fb9de9ea43b5506"
+                    }
+                },
+                "destination": ".java/",
+                "exports": {
+                    "java": "{dest_dir}/jdk8u412-b08-jre/bin/java"
+                }
+            }
+        ],
+        "config": "minecraft-vanilla.yaml"
+    }
+}

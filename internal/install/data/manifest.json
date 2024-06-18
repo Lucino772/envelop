@@ -20,7 +20,8 @@
             {
                 "type": "content",
                 "files": {
-                    "eula.txt": "#By changing the setting below to TRUE you are indicating your agreement to our EULA (https://account.mojang.com/documents/minecraft_eula).\neula=true"
+                    "eula.txt": "#By changing the setting below to TRUE you are indicating your agreement to our EULA (https://account.mojang.com/documents/minecraft_eula).\neula=true",
+                    "server.properties": "#Minecraft server properties\nspawn-protection=16\nmax-tick-time=60000\nquery.port=25565\ngenerator-settings=\nsync-chunk-writes=true\nforce-gamemode=false\nallow-nether=true\nenforce-whitelist=false\ngamemode=survival\nbroadcast-console-to-ops=true\nenable-query=false\nplayer-idle-timeout=0\ntext-filtering-config=\ndifficulty=easy\nbroadcast-rcon-to-ops=true\nspawn-monsters=true\nop-permission-level=4\npvp=true\nentity-broadcast-range-percentage=100\nsnooper-enabled=true\nlevel-type=default\nenable-status=true\nhardcore=false\nenable-command-block=false\nnetwork-compression-threshold=256\nmax-players=20\nmax-world-size=29999984\nresource-pack-sha1=\nfunction-permission-level=2\nrcon.port=25575\nserver-port=25565\nserver-ip=\nspawn-npcs=true\nallow-flight=false\nlevel-name=world\nview-distance=10\nresource-pack=\nspawn-animals=true\nwhite-list=false\nrcon.password=\ngenerate-structures=true\nonline-mode=true\nmax-build-height=256\nlevel-seed=\nprevent-proxy-connections=false\nuse-native-transport=true\nenable-jmx-monitoring=false\nmotd=A Minecraft Server\nrate-limit=0\nenable-rcon=false\n"
                 }
             },
             {

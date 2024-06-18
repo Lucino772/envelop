@@ -3,7 +3,6 @@ package install
 import (
 	"context"
 	"embed"
-	_ "embed"
 	"encoding/json"
 	"errors"
 	"log"

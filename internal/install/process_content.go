@@ -1,17 +1,34 @@
 package install
 
-import "path"
+import (
+	"path"
+	"path/filepath"
+)
 
 type ContentProcessor struct {
-	Files       map[string]string `json:"files,omitempty"`
-	Destination string            `json:"destination,omitempty"`
+	Files       map[string]string      `json:"files,omitempty"`
+	Destination string                 `json:"destination,omitempty"`
+	Exports     map[string]interface{} `json:"exports,omitempty"`
 }
 
 func (p *ContentProcessor) WithInstallDir(dir string) InstallProcessor {
+	dst, err := filepath.Abs(filepath.Join(dir, p.Destination))
+	if err != nil {
+		return nil
+	}
+
 	return &ContentProcessor{
 		Files:       p.Files,
-		Destination: path.Join(dir, p.Destination),
+		Destination: dst,
+		Exports:     p.Exports,
 	}
+}
+
+func (p *ContentProcessor) ParseExports() map[string]any {
+	data := struct{ Destination string }{
+		Destination: p.Destination,
+	}
+	return parseExports(p.Exports, data)
 }
 
 func (p *ContentProcessor) GetSize() uint32 {

@@ -43,7 +43,7 @@ func runInstall(opts *installOptions) (err error) {
 		log.Printf("An error occured %v\n", err)
 		return err
 	}
-	installer := install.NewInstaller(manifest.Sources)
+	installer := install.NewInstaller(manifest.Sources, manifest.Config)
 	installer.Install(context.Background(), opts.workingDir)
 	return nil
 }

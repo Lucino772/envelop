@@ -1,15 +1,24 @@
 package install
 
 import (
+	"embed"
 	_ "embed"
 	"encoding/json"
 	"errors"
+	"path"
 
 	"github.com/mitchellh/mapstructure"
+	"github.com/xeipuuv/gojsonschema"
 )
 
-//go:embed install-manifest.json
+//go:embed manifest-spec.json
+var Schema string
+
+//go:embed data/manifest.json
 var manifestsData []byte
+
+//go:embed data/configs/*
+var configs embed.FS
 
 type Manifest struct {
 	Sources []InstallProcessor
@@ -36,9 +45,14 @@ func LoadManifestConfig(manifestId string) (*Manifest, error) {
 		return nil, err
 	}
 
+	configContent, err := configs.ReadFile(path.Join("data/configs", manifestConf.Config))
+	if err != nil {
+		return nil, err
+	}
+
 	manifest := Manifest{
 		Sources: make([]InstallProcessor, 0),
-		Config:  manifestConf.Config,
+		Config:  string(configContent),
 	}
 	decoders := map[string]func(map[string]interface{}) (InstallProcessor, error){
 		"files":   decodeFilesSource,
@@ -57,6 +71,21 @@ func LoadManifestConfig(manifestId string) (*Manifest, error) {
 	}
 
 	return &manifest, nil
+}
+
+func Validate(config map[string]interface{}) error {
+	schemaLoader := gojsonschema.NewStringLoader(Schema)
+	dataLoader := gojsonschema.NewGoLoader(config)
+
+	res, err := gojsonschema.Validate(schemaLoader, dataLoader)
+	if err != nil {
+		return err
+	}
+
+	if !res.Valid() {
+		return errors.New("config is not valid")
+	}
+	return nil
 }
 
 func decode(source map[string]interface{}, target interface{}) error {

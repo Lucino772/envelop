@@ -2,6 +2,7 @@ package install
 
 import (
 	"path"
+	"path/filepath"
 )
 
 type FilesProcessor struct {
@@ -13,14 +14,28 @@ type FilesProcessor struct {
 			Value string `json:"value,omitempty"`
 		} `json:"hash,omitempty"`
 	} `json:"files,omitempty"`
-	Destination string `json:"destination,omitempty"`
+	Destination string                 `json:"destination,omitempty"`
+	Exports     map[string]interface{} `json:"exports,omitempty"`
 }
 
 func (p *FilesProcessor) WithInstallDir(dir string) InstallProcessor {
+	dst, err := filepath.Abs(filepath.Join(dir, p.Destination))
+	if err != nil {
+		return nil
+	}
+
 	return &FilesProcessor{
 		Files:       p.Files,
-		Destination: path.Join(dir, p.Destination),
+		Destination: dst,
+		Exports:     p.Exports,
 	}
+}
+
+func (p *FilesProcessor) ParseExports() map[string]any {
+	data := struct{ Destination string }{
+		Destination: p.Destination,
+	}
+	return parseExports(p.Exports, data)
 }
 
 func (p *FilesProcessor) GetSize() uint32 {

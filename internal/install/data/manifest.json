@@ -14,7 +14,7 @@
                     }
                 },
                 "exports": {
-                    "jar": "{dest_dir}/server-1.16.5.jar"
+                    "jar": "{{ .Destination }}/server-1.16.5.jar"
                 }
             },
             {
@@ -25,18 +25,18 @@
             },
             {
                 "type": "archive",
-                "format": "zip",
+                "format": "tar:gz",
                 "file": {
-                    "url": "https://github.com/adoptium/temurin8-binaries/releases/download/jdk8u412-b08/OpenJDK8U-jre_x64_windows_hotspot_8u412b08.zip",
-                    "size": 40366972,
+                    "url": "https://github.com/adoptium/temurin8-binaries/releases/download/jdk8u412-b08/OpenJDK8U-jre_x64_linux_hotspot_8u412b08.tar.gz",
+                    "size": 41415973,
                     "hash": {
                         "algo": "sha256",
-                        "value": "3f2402cc352bbafd8c966320edbd889f227500f36bcec3d91fb9de9ea43b5506"
+                        "value": "a8d994332a2ff15d48bf04405c3b2f6bd331a928dd96639b15e62891f7172363"
                     }
                 },
                 "destination": ".java/",
                 "exports": {
-                    "java": "{dest_dir}/jdk8u412-b08-jre/bin/java"
+                    "java": "{{ .Destination }}/jdk8u412-b08-jre/bin/java"
                 }
             }
         ],

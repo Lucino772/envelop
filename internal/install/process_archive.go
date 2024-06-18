@@ -1,6 +1,8 @@
 package install
 
-import "path"
+import (
+	"path/filepath"
+)
 
 type ArchiveProcessor struct {
 	Format string `json:"format,omitempty"`
@@ -12,15 +14,29 @@ type ArchiveProcessor struct {
 			Value string `json:"value,omitempty"`
 		} `json:"hash,omitempty"`
 	} `json:"file,omitempty"`
-	Destination string `json:"destination,omitempty"`
+	Destination string                 `json:"destination,omitempty"`
+	Exports     map[string]interface{} `json:"exports,omitempty"`
 }
 
 func (p *ArchiveProcessor) WithInstallDir(dir string) InstallProcessor {
+	dst, err := filepath.Abs(filepath.Join(dir, p.Destination))
+	if err != nil {
+		return nil
+	}
+
 	return &ArchiveProcessor{
 		Format:      p.Format,
 		File:        p.File,
-		Destination: path.Join(dir, p.Destination),
+		Destination: dst,
+		Exports:     p.Exports,
 	}
+}
+
+func (p *ArchiveProcessor) ParseExports() map[string]any {
+	data := struct{ Destination string }{
+		Destination: p.Destination,
+	}
+	return parseExports(p.Exports, data)
 }
 
 func (p *ArchiveProcessor) GetSize() uint32 {
@@ -29,7 +45,9 @@ func (p *ArchiveProcessor) GetSize() uint32 {
 
 func (p *ArchiveProcessor) IterTasks(yield func(*InstallTask) bool) {
 	compressors := map[string]Decompressor{
-		"zip": &ZipDecompressor{},
+		"zip":    &ZipDecompressor{},
+		"tar":    &TarDecompressor{},
+		"tar:gz": &TarGzipDecompressor{},
 	}
 	task := &InstallTask{
 		Path: p.Destination,

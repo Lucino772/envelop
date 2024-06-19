@@ -40,8 +40,9 @@ func runInstall(opts *installOptions) (err error) {
 
 	manifest, err := install.GetManifest(opts.gameId)
 	if err != nil {
-		log.Println("Failed to get manfiest")
+		log.Println(err)
 		return err
 	}
-	return manifest.Install(context.Background(), opts.workingDir)
+	installer := install.NewInstaller()
+	return installer.Install(context.Background(), manifest, opts.workingDir)
 }

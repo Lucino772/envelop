@@ -1,0 +1,43 @@
+{
+    "$schema": "http://json-schema.org/draft-07/schema#",
+    "type": "object",
+    "properties": {
+        "sources": {
+            "type": "array",
+            "items": {
+                "type": "object",
+                "properties": {
+                    "url": {
+                        "type": "string"
+                    },
+                    "destination": {
+                        "type": "string"
+                    },
+                    "exports": {
+                        "$ref": "#/definitions/exports"
+                    }
+                },
+                "required": ["url"]
+            }
+        },
+        "config": {
+            "type": "string"
+        }
+    },
+    "required": [
+        "sources"
+    ],
+    "definitions": {
+        "exports": {
+            "type": "object",
+            "additionalProperties": {
+                "type": [
+                    "string",
+                    "boolean",
+                    "integer",
+                    "number"
+                ]
+            }
+        }
+    }
+}

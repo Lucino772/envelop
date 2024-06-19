@@ -1,26 +1,20 @@
 package install
 
 import (
-	"context"
 	"embed"
 	"encoding/json"
 	"errors"
-	"os"
+	"net/url"
 	"path/filepath"
 	"reflect"
-	"strings"
-	"text/template"
 
 	"github.com/mitchellh/mapstructure"
 	"github.com/xeipuuv/gojsonschema"
-	"golang.org/x/sync/errgroup"
-	"golang.org/x/text/cases"
-	"golang.org/x/text/language"
 )
 
 var ErrManifestNotExists = errors.New("manifest does not exists")
 
-//go:embed manifest-spec.json
+//go:embed data/manifest-spec.json
 var manifestSchema string
 
 //go:embed data/manifest.json
@@ -29,30 +23,15 @@ var manifestData []byte
 //go:embed data/configs/*
 var gameConfigs embed.FS
 
-type Getter interface {
-	Get(context.Context, string) error
-}
-
-type Decompressor interface {
-	Decompress(context.Context, string, string) error
-}
-
-type InstallProcessor interface {
-	WithInstallDir(string) InstallProcessor
-	ParseExports() map[string]interface{}
-	GetSize() uint32
-	IterTasks(yield func(*InstallTask) bool)
-}
-
-type InstallTask struct {
-	Path         string
-	Getter       Getter
-	Decompressor Decompressor
+type Source struct {
+	Url         url.URL        `json:"url,omitempty"`
+	Destination string         `json:"destination,omitempty"`
+	Exports     map[string]any `json:"exports,omitempty"`
 }
 
 type Manifest struct {
-	Sources []InstallProcessor `json:"sources,omitempty"`
-	Config  string             `json:"config,omitempty"`
+	Sources []Source `json:"sources,omitempty"`
+	Config  string   `json:"config,omitempty"`
 }
 
 func GetManifest(id string) (*Manifest, error) {
@@ -87,93 +66,29 @@ func GetManifest(id string) (*Manifest, error) {
 	return &manifest, nil
 }
 
-func (m *Manifest) Install(ctx context.Context, installDir string) error {
-	processors := make([]InstallProcessor, 0)
-	for _, processor := range m.Sources {
-		processors = append(processors, processor.WithInstallDir(installDir))
-	}
-
-	errg, newCtx := errgroup.WithContext(ctx)
-	errg.SetLimit(10)
-	for _, processor := range processors {
-		processor.IterTasks(func(task *InstallTask) bool {
-			errg.Go(func() error {
-				return task.run(newCtx)
-			})
-			return newCtx.Err() == nil
-		})
-		if ctx.Err() != nil {
-			break
-		}
-	}
-	if err := errg.Wait(); err != nil {
-		return err
-	}
-
-	file, err := os.Create(filepath.Join(installDir, "envelop.yaml"))
-	if err != nil {
-		if file != nil {
-			file.Close()
-		}
-		return err
-	}
-	defer file.Close()
-
-	exports := make(map[string]any, 0)
-	for _, processor := range processors {
-		for key, val := range processor.ParseExports() {
-			exports[key] = val
-		}
-	}
-	content, err := gameConfigs.ReadFile(filepath.Join("data/configs", m.Config))
-	if err != nil {
-		return err
-	}
-	tmpl, err := template.New(m.Config).Parse(string(content))
-	if err != nil {
-		return err
-	}
-	return tmpl.Execute(file, exports)
-}
-
-func (task *InstallTask) run(ctx context.Context) error {
-	dstPath := task.Path
-	if task.Decompressor != nil {
-		tmpFile, err := os.CreateTemp("", "")
+func (m *Manifest) WithInstallDir(dir string) *Manifest {
+	sources := make([]Source, 0)
+	for _, src := range m.Sources {
+		dest, err := filepath.Abs(filepath.Join(dir, src.Destination))
 		if err != nil {
-			if tmpFile != nil {
-				tmpFile.Close()
-			}
-			return err
+			dest = filepath.Join(dir, src.Destination)
 		}
-		dstPath = tmpFile.Name()
-		tmpFile.Close()
+
+		sources = append(sources, Source{
+			Url:         src.Url,
+			Destination: dest,
+			Exports:     src.Exports,
+		})
 	}
-	if err := task.Getter.Get(ctx, dstPath); err != nil {
-		return err
+	return &Manifest{
+		Sources: sources,
+		Config:  m.Config,
 	}
-	if task.Decompressor != nil {
-		if err := task.Decompressor.Decompress(ctx, dstPath, task.Path); err != nil {
-			return err
-		}
-	}
-	return nil
 }
 
 func manifestDecodeHook(typ reflect.Type, target reflect.Type, data any) (any, error) {
-	if typ.Kind() == reflect.Map && target == reflect.TypeOf((*InstallProcessor)(nil)).Elem() {
-		decoders := map[string]func(map[string]interface{}) (InstallProcessor, error){
-			"files":   decodeFilesSource,
-			"archive": decodeArchiveSource,
-			"content": decodeContentSource,
-		}
-		sourceData := data.(map[string]any)
-		sourceType := sourceData["type"].(string)
-		decoder, ok := decoders[sourceType]
-		if !ok {
-			return nil, errors.New("invalid decoder")
-		}
-		return decoder(sourceData)
+	if typ.Kind() == reflect.String && target == reflect.TypeOf((*url.URL)(nil)).Elem() {
+		return url.Parse(data.(string))
 	}
 	return data, nil
 }
@@ -191,66 +106,4 @@ func validateManifest(config map[string]interface{}) error {
 		return errors.New("config is not valid")
 	}
 	return nil
-}
-
-func decode(source map[string]interface{}, target interface{}) error {
-	var decoderMD mapstructure.Metadata
-	decoderConfig := &mapstructure.DecoderConfig{
-		Metadata: &decoderMD,
-		TagName:  "json",
-		Result:   target,
-	}
-	decoder, err := mapstructure.NewDecoder(decoderConfig)
-	if err != nil {
-		return err
-	}
-	if err := decoder.Decode(source); err != nil {
-		return err
-	}
-	return nil
-}
-
-func decodeFilesSource(source map[string]interface{}) (InstallProcessor, error) {
-	var conf FilesProcessor
-	if err := decode(source, &conf); err != nil {
-		return nil, err
-	}
-	return &conf, nil
-}
-
-func decodeArchiveSource(source map[string]interface{}) (InstallProcessor, error) {
-	var conf ArchiveProcessor
-	if err := decode(source, &conf); err != nil {
-		return nil, err
-	}
-	return &conf, nil
-}
-
-func decodeContentSource(source map[string]interface{}) (InstallProcessor, error) {
-	var conf ContentProcessor
-	if err := decode(source, &conf); err != nil {
-		return nil, err
-	}
-	return &conf, nil
-}
-
-func parseExports(exports map[string]any, data any) map[string]any {
-	exp := make(map[string]any, 0)
-	for key, value := range exports {
-		formattedKey := cases.Title(language.English, cases.Compact).String(strings.ToLower(key))
-		if stringVal, ok := value.(string); ok {
-			templ, err := template.New(key).Parse(stringVal)
-			if err != nil {
-				continue
-			}
-			var buf strings.Builder
-			if err := templ.Execute(&buf, data); err != nil {
-				continue
-			}
-			exp[formattedKey] = buf.String()
-		} else {
-			exp[formattedKey] = value
-		}
-	}
-	return exp
 }

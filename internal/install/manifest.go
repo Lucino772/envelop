@@ -5,17 +5,15 @@ import (
 	"embed"
 	"encoding/json"
 	"errors"
-	"log"
 	"os"
 	"path/filepath"
 	"reflect"
 	"strings"
-	"sync"
 	"text/template"
 
 	"github.com/mitchellh/mapstructure"
 	"github.com/xeipuuv/gojsonschema"
-	"golang.org/x/sync/semaphore"
+	"golang.org/x/sync/errgroup"
 	"golang.org/x/text/cases"
 	"golang.org/x/text/language"
 )
@@ -95,29 +93,22 @@ func (m *Manifest) Install(ctx context.Context, installDir string) error {
 		processors = append(processors, processor.WithInstallDir(installDir))
 	}
 
-	var wg sync.WaitGroup
-	var sem = semaphore.NewWeighted(10)
+	errg, newCtx := errgroup.WithContext(ctx)
+	errg.SetLimit(10)
 	for _, processor := range processors {
 		processor.IterTasks(func(task *InstallTask) bool {
-			if err := sem.Acquire(ctx, 1); err != nil {
-				return false
-			}
-			defer sem.Release(1)
-
-			wg.Add(1)
-			go func(ctx context.Context, task *InstallTask, wg *sync.WaitGroup) {
-				defer wg.Done()
-				if err := task.run(ctx); err != nil {
-					log.Printf("An error occured %v\n", err)
-				}
-			}(ctx, task, &wg)
-			return true
+			errg.Go(func() error {
+				return task.run(newCtx)
+			})
+			return newCtx.Err() == nil
 		})
 		if ctx.Err() != nil {
 			break
 		}
 	}
-	wg.Wait()
+	if err := errg.Wait(); err != nil {
+		return err
+	}
 
 	file, err := os.Create(filepath.Join(installDir, "envelop.yaml"))
 	if err != nil {

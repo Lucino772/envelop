@@ -44,6 +44,7 @@ func (producer *Producer[T]) Subscribe() *subscriber[T] {
 
 	subscriber := &subscriber[T]{
 		messages: make(chan T),
+		producer: producer,
 	}
 	producer.subscribers = append(producer.subscribers, subscriber)
 	return subscriber

@@ -2,6 +2,7 @@ package minecraft
 
 import (
 	"context"
+	"errors"
 	"fmt"
 	"regexp"
 
@@ -14,10 +15,10 @@ func NewCheckMinecraftStatusTask() *checkMinecraftStatusTask {
 	return &checkMinecraftStatusTask{}
 }
 
-func (task *checkMinecraftStatusTask) Run(ctx context.Context) {
+func (task *checkMinecraftStatusTask) Run(ctx context.Context) error {
 	wp, ok := wrapper.FromIncomingContext(ctx)
 	if !ok {
-		return
+		return errors.New("wrapper is not in context")
 	}
 
 	sub := wp.SubscribeLogs()
@@ -29,7 +30,7 @@ func (task *checkMinecraftStatusTask) Run(ctx context.Context) {
 		case value := <-messages:
 			task.processValue(wp, value)
 		case <-ctx.Done():
-			return
+			return ctx.Err()
 		}
 	}
 }

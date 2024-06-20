@@ -2,6 +2,7 @@ package wrapper
 
 import (
 	"context"
+	"errors"
 	"log"
 	"os"
 	"time"
@@ -37,10 +38,10 @@ func (options *wrapperOptions) AddTask(task WrapperTask) {
 
 func WithForwardLogToStdout() WrapperOptFunc {
 	return func(options *wrapperOptions) {
-		options.AddTask(func(ctx context.Context) {
+		options.AddTask(func(ctx context.Context) error {
 			wp, ok := FromIncomingContext(ctx)
 			if !ok {
-				return
+				return errors.New("wrapper is not in context")
 			}
 
 			sub := wp.SubscribeLogs()
@@ -49,16 +50,17 @@ func WithForwardLogToStdout() WrapperOptFunc {
 			for item := range sub.Messages() {
 				log.Println(item)
 			}
+			return nil
 		})
 	}
 }
 
 func WithForwardLogToEvent() WrapperOptFunc {
 	return func(options *wrapperOptions) {
-		options.AddTask(func(ctx context.Context) {
+		options.AddTask(func(ctx context.Context) error {
 			wp, ok := FromIncomingContext(ctx)
 			if !ok {
-				return
+				return errors.New("wrapper is not in context")
 			}
 
 			sub := wp.SubscribeLogs()
@@ -69,6 +71,7 @@ func WithForwardLogToEvent() WrapperOptFunc {
 					Value: item,
 				})
 			}
+			return nil
 		})
 	}
 }

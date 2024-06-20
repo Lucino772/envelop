@@ -4,6 +4,8 @@ import (
 	"context"
 	"sync"
 	"time"
+
+	"golang.org/x/sync/errgroup"
 )
 
 type subscriber[T interface{}] struct {
@@ -27,8 +29,6 @@ func NewProducer[T interface{}]() *Producer[T] {
 }
 
 func (producer *Producer[T]) Publish(msg T) {
-	producer.mu.Lock()
-	defer producer.mu.Unlock()
 	if !producer.closed {
 		producer.incoming <- msg
 	}
@@ -51,9 +51,6 @@ func (producer *Producer[T]) Subscribe() *subscriber[T] {
 }
 
 func (producer *Producer[T]) Close() {
-	producer.mu.Lock()
-	defer producer.mu.Unlock()
-
 	if producer.closed {
 		return
 	}
@@ -65,22 +62,27 @@ func (producer *Producer[T]) Close() {
 	}
 }
 
-func (producer *Producer[T]) Run(ctx context.Context) {
+func (producer *Producer[T]) Run(ctx context.Context) error {
 	defer producer.Close()
+
 	for {
 		select {
 		case msg, ok := <-producer.incoming:
 			if !ok {
-				return
+				return nil
 			}
-			var wg sync.WaitGroup
+			g, newCtx := errgroup.WithContext(ctx)
 			for _, sub := range producer.subscribers {
-				wg.Add(1)
-				go sub.sendWithTimeout(ctx, msg, &wg)
+				sub := sub
+				g.Go(func() error {
+					return sub.sendWithTimeout(newCtx, msg)
+				})
 			}
-			wg.Wait()
+			if err := g.Wait(); err != nil {
+				return err
+			}
 		case <-ctx.Done():
-			return
+			return ctx.Err()
 		}
 	}
 }
@@ -91,7 +93,6 @@ func (sub *subscriber[T]) Messages() <-chan T {
 
 func (sub *subscriber[T]) Unsubscribe() {
 	sub.producer.removeSubscriber(sub)
-	close(sub.messages)
 }
 
 func (producer *Producer[T]) removeSubscriber(subscriber *subscriber[T]) {
@@ -102,19 +103,19 @@ func (producer *Producer[T]) removeSubscriber(subscriber *subscriber[T]) {
 		if sub == subscriber {
 			producer.subscribers[ix] = producer.subscribers[len(producer.subscribers)-1]
 			producer.subscribers = producer.subscribers[:len(producer.subscribers)-1]
+			close(sub.messages)
 		}
 	}
 }
 
-func (sub *subscriber[T]) sendWithTimeout(ctx context.Context, message T, wg *sync.WaitGroup) {
-	defer wg.Done()
+func (sub *subscriber[T]) sendWithTimeout(ctx context.Context, message T) error {
 	ctx, cancel := context.WithTimeout(ctx, 5*time.Second)
 	defer cancel()
 
 	select {
 	case sub.messages <- message:
-		return
+		return nil
 	case <-ctx.Done():
-		return
+		return ctx.Err()
 	}
 }

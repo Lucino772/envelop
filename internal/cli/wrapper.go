@@ -2,6 +2,7 @@ package cli
 
 import (
 	"context"
+	"errors"
 	"log"
 	"os"
 	"path"
@@ -90,7 +91,11 @@ func runWrapper(opts *wrapperOptions) (err error) {
 		log.Println("Error while creating wrapper")
 		return err
 	}
-	return wp.Run(context.Background())
+	err = wp.Run(context.Background())
+	if errors.Is(err, context.Canceled) {
+		return nil
+	}
+	return err
 }
 
 func loadConfig(configPath string) (*config.Config, error) {

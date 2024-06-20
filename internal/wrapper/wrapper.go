@@ -12,6 +12,7 @@ import (
 
 	"github.com/Lucino772/envelop/internal/utils"
 	"github.com/go-cmd/cmd"
+	"golang.org/x/sync/errgroup"
 	"google.golang.org/grpc"
 )
 
@@ -125,11 +126,19 @@ func (wp *Wrapper) Run(parent context.Context) error {
 		return err
 	}
 	defer grpcServer.Stop()
+
+	errg, _ := errgroup.WithContext(ctx)
+	errg.SetLimit(-1)
 	for _, task := range wp.options.tasks {
-		go task(ctx)
+		task := task
+		errg.Go(func() error {
+			return task(ctx)
+		})
 	}
+
 	wp.runProcess(ctx)
-	return nil
+	cancel()
+	return errg.Wait()
 }
 
 func (wp *Wrapper) startGrpc() (*grpc.Server, error) {

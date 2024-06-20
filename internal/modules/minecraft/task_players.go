@@ -3,6 +3,7 @@ package minecraft
 import (
 	"bufio"
 	"context"
+	"errors"
 	"net"
 	"time"
 
@@ -15,21 +16,21 @@ func NewFetchMinecraftPlayersTask() *fetchMinecraftPlayersTask {
 	return &fetchMinecraftPlayersTask{}
 }
 
-func (task *fetchMinecraftPlayersTask) Run(ctx context.Context) {
+func (task *fetchMinecraftPlayersTask) Run(ctx context.Context) error {
 	wp, ok := wrapper.FromIncomingContext(ctx)
 	if !ok {
-		return
+		return errors.New("wrapper is not in context")
 	}
 
 	ready := task.waitQueryReady(ctx, wp)
 	if !ready {
-		return
+		return errors.New("query is not enabled")
 	}
 
 	for {
 		select {
 		case <-ctx.Done():
-			return
+			return ctx.Err()
 		default:
 			stats, _ := task.queryStats(ctx)
 			if stats != nil {

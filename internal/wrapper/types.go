@@ -6,7 +6,7 @@ import (
 	"google.golang.org/grpc"
 )
 
-type WrapperTask func(context.Context)
+type WrapperTask func(context.Context) error
 
 type WrapperService interface {
 	Register(grpc.ServiceRegistrar)

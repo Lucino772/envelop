@@ -1,0 +1,20 @@
+syntax = "proto3";
+
+option go_package = "github.com/Lucino772/envelop/pkg/protobufs";
+
+import "google/protobuf/empty.proto";
+
+service Players {
+    rpc ListPlayers (google.protobuf.Empty) returns (PlayerList);
+    rpc StreamPlayers (google.protobuf.Empty) returns (stream PlayerList);
+}
+
+message Player {
+    string name = 1;
+}
+
+message PlayerList {
+    uint32 num_players = 1;
+    uint32 max_players = 2;
+    repeated Player players = 3;
+}

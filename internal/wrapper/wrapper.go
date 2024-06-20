@@ -17,6 +17,7 @@ import (
 
 type Wrapper struct {
 	ProcessStatusState WrapperStateAccessor[ProcessStatusState]
+	PlayerState        WrapperStateAccessor[PlayerState]
 
 	options        wrapperOptions
 	cmd            *cmd.Cmd
@@ -79,6 +80,11 @@ func NewWrapper(program string, args []string, opts ...WrapperOptFunc) (*Wrapper
 	}
 	wrapper.ProcessStatusState = newWrapperStateProperty(ProcessStatusState{
 		Description: "Unknown",
+	}, wrapper.updateState)
+	wrapper.PlayerState = newWrapperStateProperty(PlayerState{
+		Count:   0,
+		Max:     0,
+		Players: make([]string, 0),
 	}, wrapper.updateState)
 	return wrapper, nil
 }

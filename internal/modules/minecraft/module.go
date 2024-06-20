@@ -10,4 +10,5 @@ func NewMinecraftModule() *minecraftModule {
 
 func (mod *minecraftModule) Register(wrapper wrapper.WrapperRegistrar) {
 	wrapper.AddTask(NewCheckMinecraftStatusTask().Run)
+	wrapper.AddTask(NewFetchMinecraftPlayersTask().Run)
 }

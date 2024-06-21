@@ -8,6 +8,7 @@ import (
 	"time"
 
 	"github.com/Lucino772/envelop/internal/wrapper"
+	"golang.org/x/sync/errgroup"
 )
 
 type fetchMinecraftPlayersTask struct{}
@@ -87,20 +88,36 @@ func (task *fetchMinecraftPlayersTask) queryStats(ctx context.Context) (*QuerySt
 	if err != nil {
 		return nil, err
 	}
-	defer conn.Close()
 
-	if err := conn.SetDeadline(time.Now().Add(5 * time.Second)); err != nil {
-		return nil, err
-	}
+	resultChan := make(chan *QueryStats)
+	wg := new(errgroup.Group)
+	wg.Go(func() error {
+		defer close(resultChan)
+		if err := conn.SetDeadline(time.Now().Add(5 * time.Second)); err != nil {
+			return err
+		}
 
-	client := &queryClient{
-		Conn:   conn,
-		sessId: int32(time.Now().Unix()) & 0x0F0F0F0F,
-		reader: &buffer{bufio.NewReaderSize(conn, 1472)},
-	}
+		client := &queryClient{
+			Conn:   conn,
+			sessId: int32(time.Now().Unix()) & 0x0F0F0F0F,
+			reader: &buffer{bufio.NewReaderSize(conn, 1472)},
+		}
+		if err := client.Challenge(); err != nil {
+			return err
+		}
+		stats, err := client.QueryStats()
+		if err != nil {
+			return err
+		}
+		resultChan <- stats
+		return nil
+	})
 
-	if err := client.Challenge(); err != nil {
-		return nil, err
+	var stats *QueryStats
+	select {
+	case stats = <-resultChan:
+	case <-ctx.Done():
 	}
-	return client.QueryStats()
+	conn.Close()
+	return stats, wg.Wait()
 }

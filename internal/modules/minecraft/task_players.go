@@ -34,7 +34,7 @@ func (task *fetchMinecraftPlayersTask) Run(ctx context.Context) error {
 		default:
 			stats, _ := task.queryStats(ctx)
 			if stats != nil {
-				wp.PlayerState.Set(wrapper.PlayerState{
+				wp.PlayerState().Set(wrapper.PlayerState{
 					Count:   int(stats.NumPlayers),
 					Max:     int(stats.MaxPlayers),
 					Players: stats.Players,
@@ -44,7 +44,7 @@ func (task *fetchMinecraftPlayersTask) Run(ctx context.Context) error {
 	}
 }
 
-func (task *fetchMinecraftPlayersTask) waitQueryReady(ctx context.Context, wp *wrapper.Wrapper) bool {
+func (task *fetchMinecraftPlayersTask) waitQueryReady(ctx context.Context, wp wrapper.WrapperContext) bool {
 	sub := wp.SubscribeLogs()
 	defer sub.Unsubscribe()
 	messages := sub.Messages()

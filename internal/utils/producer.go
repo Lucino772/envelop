@@ -8,6 +8,11 @@ import (
 	"golang.org/x/sync/errgroup"
 )
 
+type Subscriber[T any] interface {
+	Messages() <-chan T
+	Unsubscribe()
+}
+
 type subscriber[T interface{}] struct {
 	messages chan T
 	producer *Producer[T]

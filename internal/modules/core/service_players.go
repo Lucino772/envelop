@@ -23,7 +23,7 @@ func (service *corePlayersService) ListPlayers(ctx context.Context, _ *emptypb.E
 	if !ok {
 		return nil, errors.New("wrapper is not in context")
 	}
-	state := wp.PlayerState.Get()
+	state := wp.PlayerState().Get()
 	players := make([]*pb.Player, 0)
 	for _, player := range state.Players {
 		players = append(players, &pb.Player{Name: player})

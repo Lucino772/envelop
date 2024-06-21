@@ -23,7 +23,7 @@ func (service *coreProcessService) GetStatus(ctx context.Context, _ *emptypb.Emp
 	if !ok {
 		return nil, errors.New("wrapper is not in context")
 	}
-	state := wp.ProcessStatusState.Get()
+	state := wp.ProcessStatusState().Get()
 	return &pb.Status{
 		Value: state.Description,
 	}, nil

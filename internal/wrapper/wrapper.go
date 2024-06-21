@@ -25,50 +25,49 @@ type WrapperState interface {
 	Equals(WrapperState) bool
 }
 
-type WrapperStateAccessor[T WrapperState] interface {
+type WrapperStateProperty[T WrapperState] interface {
 	Get() T
 	Set(T)
 }
 
-type WrapperSubscriber[T interface{}] interface {
-	Messages() <-chan T
-	Unsubscribe()
+type WrapperContext interface {
+	WriteCommand(command string) error
+	SubscribeLogs() utils.Subscriber[string]
+	SubscribeEvents() utils.Subscriber[Event]
+	PublishEvent(event WrapperEvent)
+
+	ProcessStatusState() WrapperStateProperty[ProcessStatusState]
+	PlayerState() WrapperStateProperty[PlayerState]
+}
+
+type stateProperty[T WrapperState] struct {
+	state  T
+	mu     sync.Mutex
+	notify func(WrapperState)
 }
 
 type Wrapper struct {
-	ProcessStatusState WrapperStateAccessor[ProcessStatusState]
-	PlayerState        WrapperStateAccessor[PlayerState]
-
 	options        wrapperOptions
 	cmd            *cmd.Cmd
 	stdinReader    io.Reader
 	stdinWriter    io.WriteCloser
 	logsProducer   *utils.Producer[string]
 	eventsProducer *utils.Producer[Event]
+
+	processStatusState *stateProperty[ProcessStatusState]
+	playerState        *stateProperty[PlayerState]
 }
 
-type wrapperStateProperty[T WrapperState] struct {
-	stateObj T
-	mu       sync.Mutex
-	notify   func(WrapperState)
+func (property *stateProperty[T]) Get() T {
+	return property.state
 }
 
-func newWrapperStateProperty[T WrapperState](initialState T, notify func(WrapperState)) *wrapperStateProperty[T] {
-	return &wrapperStateProperty[T]{
-		stateObj: initialState,
-		notify:   notify,
-	}
-}
-
-func (property *wrapperStateProperty[T]) Get() T {
-	return property.stateObj
-}
-
-func (property *wrapperStateProperty[T]) Set(state T) {
+func (property *stateProperty[T]) Set(state T) {
 	property.mu.Lock()
 	defer property.mu.Unlock()
-	if !property.stateObj.Equals(state) {
-		property.stateObj = state
+
+	if !property.state.Equals(state) {
+		property.state = state
 		property.notify(state)
 	}
 }
@@ -98,14 +97,20 @@ func NewWrapper(program string, args []string, opts ...WrapperOptFunc) (*Wrapper
 		logsProducer:   utils.NewProducer[string](),
 		eventsProducer: utils.NewProducer[Event](),
 	}
-	wrapper.ProcessStatusState = newWrapperStateProperty(ProcessStatusState{
-		Description: "Unknown",
-	}, wrapper.updateState)
-	wrapper.PlayerState = newWrapperStateProperty(PlayerState{
-		Count:   0,
-		Max:     0,
-		Players: make([]string, 0),
-	}, wrapper.updateState)
+	wrapper.processStatusState = &stateProperty[ProcessStatusState]{
+		state: ProcessStatusState{
+			Description: "Unknown",
+		},
+		notify: wrapper.updateState,
+	}
+	wrapper.playerState = &stateProperty[PlayerState]{
+		state: PlayerState{
+			Count:   0,
+			Max:     0,
+			Players: []string{},
+		},
+		notify: wrapper.updateState,
+	}
 	return wrapper, nil
 }
 
@@ -114,11 +119,11 @@ func (wp *Wrapper) WriteCommand(command string) error {
 	return err
 }
 
-func (wp *Wrapper) SubscribeLogs() WrapperSubscriber[string] {
+func (wp *Wrapper) SubscribeLogs() utils.Subscriber[string] {
 	return wp.logsProducer.Subscribe()
 }
 
-func (wp *Wrapper) SubscribeEvents() WrapperSubscriber[Event] {
+func (wp *Wrapper) SubscribeEvents() utils.Subscriber[Event] {
 	return wp.eventsProducer.Subscribe()
 }
 
@@ -129,6 +134,14 @@ func (wp *Wrapper) PublishEvent(event WrapperEvent) {
 		Name:      event.GetEventName(),
 		Data:      event,
 	})
+}
+
+func (wp *Wrapper) ProcessStatusState() WrapperStateProperty[ProcessStatusState] {
+	return wp.processStatusState
+}
+
+func (wp *Wrapper) PlayerState() WrapperStateProperty[PlayerState] {
+	return wp.playerState
 }
 
 func (wp *Wrapper) Run(parent context.Context) error {

@@ -16,6 +16,25 @@ import (
 	"google.golang.org/grpc"
 )
 
+type WrapperEvent interface {
+	GetEventName() string
+}
+
+type WrapperState interface {
+	GetStateName() string
+	Equals(WrapperState) bool
+}
+
+type WrapperStateAccessor[T WrapperState] interface {
+	Get() T
+	Set(T)
+}
+
+type WrapperSubscriber[T interface{}] interface {
+	Messages() <-chan T
+	Unsubscribe()
+}
+
 type Wrapper struct {
 	ProcessStatusState WrapperStateAccessor[ProcessStatusState]
 	PlayerState        WrapperStateAccessor[PlayerState]

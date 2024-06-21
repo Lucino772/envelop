@@ -6,10 +6,27 @@ import (
 	"log"
 	"os"
 	"time"
+
+	"google.golang.org/grpc"
 )
 
 type WrapperStopper func(*Wrapper) error
 type WrapperOptFunc func(*wrapperOptions)
+
+type WrapperTask func(context.Context) error
+
+type WrapperService interface {
+	Register(grpc.ServiceRegistrar)
+}
+
+type WrapperRegistrar interface {
+	AddService(WrapperService)
+	AddTask(WrapperTask)
+}
+
+type WrapperModule interface {
+	Register(WrapperRegistrar)
+}
 
 type wrapperOptions struct {
 	dir             string

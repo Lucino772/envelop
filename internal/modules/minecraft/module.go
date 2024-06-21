@@ -9,6 +9,7 @@ func NewMinecraftModule() *minecraftModule {
 }
 
 func (mod *minecraftModule) Register(wrapper wrapper.WrapperRegistrar) {
+	wrapper.AddService(NewMinecraftRconService())
 	wrapper.AddTask(NewCheckMinecraftStatusTask().Run)
 	wrapper.AddTask(NewFetchMinecraftPlayersTask().Run)
 }

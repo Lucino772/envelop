@@ -1,0 +1,15 @@
+syntax = "proto3";
+
+option go_package = "github.com/Lucino772/envelop/pkg/protobufs";
+
+service Rcon {
+    rpc SendCommand (RconCommand) returns (RconResponse);
+}
+
+message RconCommand {
+    string value = 1;
+}
+
+message RconResponse {
+    string value = 1;
+}

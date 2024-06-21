@@ -9,7 +9,6 @@ import (
 	"syscall"
 	"time"
 
-	"github.com/Lucino772/envelop/internal/config"
 	"github.com/Lucino772/envelop/internal/modules/core"
 	"github.com/Lucino772/envelop/internal/modules/minecraft"
 	"github.com/Lucino772/envelop/internal/wrapper"
@@ -98,12 +97,12 @@ func runWrapper(opts *wrapperOptions) (err error) {
 	return err
 }
 
-func loadConfig(configPath string) (*config.Config, error) {
+func loadConfig(configPath string) (*wrapper.Config, error) {
 	data, err := os.ReadFile(configPath)
 	if err != nil {
 		return nil, err
 	}
-	conf, err := config.LoadConfig(data)
+	conf, err := wrapper.LoadConfig(data)
 	if err != nil {
 		return nil, err
 	}

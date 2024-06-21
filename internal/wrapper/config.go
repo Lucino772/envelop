@@ -1,13 +1,20 @@
-package config
+package wrapper
 
 import (
+	_ "embed"
 	"errors"
 	"fmt"
 	"slices"
 
 	"github.com/mitchellh/mapstructure"
+	"github.com/xeipuuv/gojsonschema"
 	"gopkg.in/yaml.v3"
 )
+
+var ErrInvalidWrapperConfig = errors.New("invalid wrapper config")
+
+//go:embed data/envelop-spec.json
+var configSchema string
 
 type Config struct {
 	Process Process        `yaml:"process,omitempty"`
@@ -33,7 +40,7 @@ func LoadConfig(source []byte) (*Config, error) {
 	var dict map[string]interface{}
 	yaml.Unmarshal(source, &dict)
 
-	if err := Validate(dict); err != nil {
+	if err := validateConfig(dict); err != nil {
 		return nil, err
 	}
 
@@ -67,4 +74,19 @@ func LoadConfig(source []byte) (*Config, error) {
 	}
 
 	return &conf, nil
+}
+
+func validateConfig(config map[string]interface{}) error {
+	schemaLoader := gojsonschema.NewStringLoader(configSchema)
+	dataLoader := gojsonschema.NewGoLoader(config)
+
+	res, err := gojsonschema.Validate(schemaLoader, dataLoader)
+	if err != nil {
+		return err
+	}
+
+	if !res.Valid() {
+		return ErrInvalidWrapperConfig
+	}
+	return nil
 }

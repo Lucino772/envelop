@@ -6,7 +6,7 @@ import (
 	"os"
 	"sync"
 
-	"github.com/Lucino772/envelop/internal/utils"
+	"github.com/Lucino772/envelop/pkg/pubsub"
 	"github.com/go-cmd/cmd"
 	"golang.org/x/sync/errgroup"
 )
@@ -16,8 +16,8 @@ type Wrapper struct {
 	cmd            *cmd.Cmd
 	stdinReader    io.Reader
 	stdinWriter    io.WriteCloser
-	logsProducer   *utils.Producer[string]
-	eventsProducer *utils.Producer[Event]
+	logsProducer   *pubsub.Producer[string]
+	eventsProducer *pubsub.Producer[Event]
 
 	processStatusState *stateProperty[ProcessStatusState]
 	playerState        *stateProperty[PlayerState]
@@ -45,8 +45,8 @@ func NewWrapper(program string, args []string, opts ...WrapperOptFunc) (*Wrapper
 		cmd:            command,
 		stdinReader:    stdinReader,
 		stdinWriter:    stdinWriter,
-		logsProducer:   utils.NewProducer[string](),
-		eventsProducer: utils.NewProducer[Event](),
+		logsProducer:   pubsub.NewProducer[string](5),
+		eventsProducer: pubsub.NewProducer[Event](5),
 	}
 	wrapper.processStatusState = &stateProperty[ProcessStatusState]{
 		state: ProcessStatusState{

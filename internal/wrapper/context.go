@@ -7,7 +7,7 @@ import (
 	"os"
 	"time"
 
-	"github.com/Lucino772/envelop/internal/utils"
+	"github.com/Lucino772/envelop/pkg/pubsub"
 )
 
 var ErrWrapperContextMissing = errors.New("wrapper context missing")
@@ -31,8 +31,8 @@ type WrapperStateProperty[T WrapperState] interface {
 type WrapperContext interface {
 	WriteCommand(command string) error
 	SendSignal(signal os.Signal) error
-	SubscribeLogs() utils.Subscriber[string]
-	SubscribeEvents() utils.Subscriber[Event]
+	SubscribeLogs() *pubsub.Subscriber[string]
+	SubscribeEvents() *pubsub.Subscriber[Event]
 	PublishEvent(event WrapperEvent)
 	ProcessStatusState() WrapperStateProperty[ProcessStatusState]
 	PlayerState() WrapperStateProperty[PlayerState]
@@ -63,11 +63,11 @@ func (wp *Wrapper) SendSignal(signal os.Signal) error {
 	return process.Signal(signal)
 }
 
-func (wp *Wrapper) SubscribeLogs() utils.Subscriber[string] {
+func (wp *Wrapper) SubscribeLogs() *pubsub.Subscriber[string] {
 	return wp.logsProducer.Subscribe()
 }
 
-func (wp *Wrapper) SubscribeEvents() utils.Subscriber[Event] {
+func (wp *Wrapper) SubscribeEvents() *pubsub.Subscriber[Event] {
 	return wp.eventsProducer.Subscribe()
 }
 

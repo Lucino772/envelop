@@ -2,7 +2,6 @@ package core
 
 import (
 	"context"
-	"errors"
 
 	"github.com/Lucino772/envelop/internal/wrapper"
 	pb "github.com/Lucino772/envelop/pkg/protobufs"
@@ -19,9 +18,9 @@ func NewCorePlayersService() *corePlayersService {
 }
 
 func (service *corePlayersService) ListPlayers(ctx context.Context, _ *emptypb.Empty) (*pb.PlayerList, error) {
-	wp, ok := wrapper.FromIncomingContext(ctx)
-	if !ok {
-		return nil, errors.New("wrapper is not in context")
+	wp, err := wrapper.FromContext(ctx)
+	if err != nil {
+		return nil, err
 	}
 	state := wp.PlayerState().Get()
 	players := make([]*pb.Player, 0)
@@ -36,9 +35,9 @@ func (service *corePlayersService) ListPlayers(ctx context.Context, _ *emptypb.E
 }
 
 func (service *corePlayersService) StreamPlayers(_ *emptypb.Empty, stream pb.Players_StreamPlayersServer) error {
-	wp, ok := wrapper.FromIncomingContext(stream.Context())
-	if !ok {
-		return errors.New("wrapper is not in context")
+	wp, err := wrapper.FromContext(stream.Context())
+	if err != nil {
+		return err
 	}
 
 	sub := wp.SubscribeEvents()

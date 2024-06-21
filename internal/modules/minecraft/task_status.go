@@ -2,7 +2,6 @@ package minecraft
 
 import (
 	"context"
-	"errors"
 	"fmt"
 	"regexp"
 
@@ -16,9 +15,9 @@ func NewCheckMinecraftStatusTask() *checkMinecraftStatusTask {
 }
 
 func (task *checkMinecraftStatusTask) Run(ctx context.Context) error {
-	wp, ok := wrapper.FromIncomingContext(ctx)
-	if !ok {
-		return errors.New("wrapper is not in context")
+	wp, err := wrapper.FromContext(ctx)
+	if err != nil {
+		return err
 	}
 
 	sub := wp.SubscribeLogs()

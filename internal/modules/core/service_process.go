@@ -2,7 +2,6 @@ package core
 
 import (
 	"context"
-	"errors"
 
 	"github.com/Lucino772/envelop/internal/wrapper"
 	pb "github.com/Lucino772/envelop/pkg/protobufs"
@@ -19,9 +18,9 @@ func NewCoreProcessService() *coreProcessService {
 }
 
 func (service *coreProcessService) GetStatus(ctx context.Context, _ *emptypb.Empty) (*pb.Status, error) {
-	wp, ok := wrapper.FromIncomingContext(ctx)
-	if !ok {
-		return nil, errors.New("wrapper is not in context")
+	wp, err := wrapper.FromContext(ctx)
+	if err != nil {
+		return nil, err
 	}
 	state := wp.ProcessStatusState().Get()
 	return &pb.Status{
@@ -30,9 +29,9 @@ func (service *coreProcessService) GetStatus(ctx context.Context, _ *emptypb.Emp
 }
 
 func (service *coreProcessService) StreamStatus(_ *emptypb.Empty, stream pb.Process_StreamStatusServer) error {
-	wp, ok := wrapper.FromIncomingContext(stream.Context())
-	if !ok {
-		return errors.New("wrapper is not in context")
+	wp, err := wrapper.FromContext(stream.Context())
+	if err != nil {
+		return err
 	}
 
 	sub := wp.SubscribeEvents()
@@ -56,9 +55,9 @@ func (service *coreProcessService) StreamStatus(_ *emptypb.Empty, stream pb.Proc
 }
 
 func (service *coreProcessService) WriteCommand(ctx context.Context, request *pb.Command) (*emptypb.Empty, error) {
-	wp, ok := wrapper.FromIncomingContext(ctx)
-	if !ok {
-		return nil, errors.New("wrapper is not in context")
+	wp, err := wrapper.FromContext(ctx)
+	if err != nil {
+		return nil, err
 	}
 	if err := wp.WriteCommand(request.GetValue()); err != nil {
 		return nil, err
@@ -67,9 +66,9 @@ func (service *coreProcessService) WriteCommand(ctx context.Context, request *pb
 }
 
 func (service *coreProcessService) StreamLogs(_ *emptypb.Empty, stream pb.Process_StreamLogsServer) error {
-	wp, ok := wrapper.FromIncomingContext(stream.Context())
-	if !ok {
-		return errors.New("wrapper is not in context")
+	wp, err := wrapper.FromContext(stream.Context())
+	if err != nil {
+		return err
 	}
 	sub := wp.SubscribeLogs()
 	defer sub.Unsubscribe()

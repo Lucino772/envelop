@@ -2,6 +2,7 @@ package wrapper
 
 import (
 	"context"
+	"net"
 
 	"google.golang.org/grpc"
 )
@@ -11,24 +12,38 @@ type defaultGrpcWrappedStream struct {
 	ctx context.Context
 }
 
-func newDefaultGrpcWrappedStream(ctx context.Context, ss grpc.ServerStream) *defaultGrpcWrappedStream {
-	return &defaultGrpcWrappedStream{ss, ctx}
-}
-
 func (w *defaultGrpcWrappedStream) Context() context.Context {
 	return w.ctx
 }
 
-func getGrpcUnaryInterceptor(wp *Wrapper) func(parent context.Context, req any, _ *grpc.UnaryServerInfo, handler grpc.UnaryHandler) (any, error) {
-	return func(ctx context.Context, req any, _ *grpc.UnaryServerInfo, handler grpc.UnaryHandler) (any, error) {
-		return handler(NewIncomingContext(ctx, wp), req)
+func (wp *Wrapper) startGrpc() (*grpc.Server, error) {
+	lis, err := net.Listen("tcp", "0.0.0.0:8791")
+	if err != nil {
+		return nil, err
 	}
+	grpcServer := grpc.NewServer(
+		wp.withUnaryInterceptor(),
+		wp.withStreamInterceptor(),
+	)
+	for _, service := range wp.options.services {
+		service.Register(grpcServer)
+	}
+	go grpcServer.Serve(lis)
+	return grpcServer, nil
 }
 
-func getGrpcStreamInterceptor(wp *Wrapper) func(srv any, ss grpc.ServerStream, _ *grpc.StreamServerInfo, handler grpc.StreamHandler) error {
-	return func(srv any, ss grpc.ServerStream, _ *grpc.StreamServerInfo, handler grpc.StreamHandler) error {
-		return handler(
-			srv, newDefaultGrpcWrappedStream(NewIncomingContext(ss.Context(), wp), ss),
-		)
-	}
+func (wp *Wrapper) withUnaryInterceptor() grpc.ServerOption {
+	return grpc.UnaryInterceptor(
+		func(ctx context.Context, req any, info *grpc.UnaryServerInfo, handler grpc.UnaryHandler) (resp any, err error) {
+			return handler(wp.withContext(ctx), req)
+		},
+	)
+}
+
+func (wp *Wrapper) withStreamInterceptor() grpc.ServerOption {
+	return grpc.StreamInterceptor(
+		func(srv any, ss grpc.ServerStream, info *grpc.StreamServerInfo, handler grpc.StreamHandler) error {
+			return handler(srv, &defaultGrpcWrappedStream{ss, wp.withContext(ss.Context())})
+		},
+	)
 }

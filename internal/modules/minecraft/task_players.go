@@ -17,9 +17,9 @@ func NewFetchMinecraftPlayersTask() *fetchMinecraftPlayersTask {
 }
 
 func (task *fetchMinecraftPlayersTask) Run(ctx context.Context) error {
-	wp, ok := wrapper.FromIncomingContext(ctx)
-	if !ok {
-		return errors.New("wrapper is not in context")
+	wp, err := wrapper.FromContext(ctx)
+	if err != nil {
+		return err
 	}
 
 	ready := task.waitQueryReady(ctx, wp)

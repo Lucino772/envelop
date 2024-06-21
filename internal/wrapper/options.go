@@ -2,7 +2,6 @@ package wrapper
 
 import (
 	"context"
-	"errors"
 	"log"
 	"os"
 	"time"
@@ -10,7 +9,7 @@ import (
 	"google.golang.org/grpc"
 )
 
-type WrapperStopper func(*Wrapper) error
+type WrapperStopper func(WrapperContext) error
 type WrapperOptFunc func(*wrapperOptions)
 
 type WrapperTask func(context.Context) error
@@ -56,9 +55,9 @@ func (options *wrapperOptions) AddTask(task WrapperTask) {
 func WithForwardLogToStdout() WrapperOptFunc {
 	return func(options *wrapperOptions) {
 		options.AddTask(func(ctx context.Context) error {
-			wp, ok := FromIncomingContext(ctx)
-			if !ok {
-				return errors.New("wrapper is not in context")
+			wp, err := FromContext(ctx)
+			if err != nil {
+				return err
 			}
 
 			sub := wp.SubscribeLogs()
@@ -75,9 +74,9 @@ func WithForwardLogToStdout() WrapperOptFunc {
 func WithForwardLogToEvent() WrapperOptFunc {
 	return func(options *wrapperOptions) {
 		options.AddTask(func(ctx context.Context) error {
-			wp, ok := FromIncomingContext(ctx)
-			if !ok {
-				return errors.New("wrapper is not in context")
+			wp, err := FromContext(ctx)
+			if err != nil {
+				return err
 			}
 
 			sub := wp.SubscribeLogs()
@@ -113,20 +112,15 @@ func WithGracefulTimeout(timeout time.Duration) WrapperOptFunc {
 
 func WithGracefulStopSignal(signal os.Signal) WrapperOptFunc {
 	return func(options *wrapperOptions) {
-		options.gracefulStopper = func(wp *Wrapper) error {
-			process, err := os.FindProcess(wp.cmd.Status().PID)
-			if err != nil {
-				return err
-			}
-			process.Signal(signal)
-			return nil
+		options.gracefulStopper = func(wp WrapperContext) error {
+			return wp.SendSignal(signal)
 		}
 	}
 }
 
 func WithGracefulStopCommand(command string) WrapperOptFunc {
 	return func(options *wrapperOptions) {
-		options.gracefulStopper = func(wp *Wrapper) error {
+		options.gracefulStopper = func(wp WrapperContext) error {
 			return wp.WriteCommand(command)
 		}
 	}

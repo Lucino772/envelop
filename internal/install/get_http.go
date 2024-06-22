@@ -44,7 +44,7 @@ func (g *HttpGetter) Get(ctx context.Context, dstPath string) error {
 	}
 	defer resp.Body.Close()
 
-	body := utils.FullReader(resp.Body)
+	body := utils.NewFullReader(resp.Body)
 	if g.Hasher != nil {
 		body = io.TeeReader(body, g.Hasher)
 	}

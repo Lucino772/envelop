@@ -49,7 +49,7 @@ func (r *readerWithCloseFn) Close() error {
 }
 
 type fullReader struct {
-	io.Reader
+	reader io.Reader
 }
 
 func NewFullReader(r io.Reader) io.Reader {
@@ -57,7 +57,7 @@ func NewFullReader(r io.Reader) io.Reader {
 }
 
 func (r *fullReader) Read(buf []byte) (read int, err error) {
-	read, err = io.ReadFull(r, buf)
+	read, err = io.ReadFull(r.reader, buf)
 	if err == io.ErrUnexpectedEOF {
 		err = io.EOF
 	}

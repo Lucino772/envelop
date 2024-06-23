@@ -4,8 +4,6 @@ import (
 	"embed"
 	"encoding/json"
 	"errors"
-	"net/url"
-	"path/filepath"
 	"reflect"
 
 	"github.com/mitchellh/mapstructure"
@@ -23,15 +21,9 @@ var manifestData []byte
 //go:embed data/configs/*
 var gameConfigs embed.FS
 
-type Source struct {
-	Url         url.URL        `json:"url,omitempty"`
-	Destination string         `json:"destination,omitempty"`
-	Exports     map[string]any `json:"exports,omitempty"`
-}
-
 type Manifest struct {
-	Sources []Source `json:"sources,omitempty"`
-	Config  string   `json:"config,omitempty"`
+	Sources []Source `mapstructure:"sources,omitempty"`
+	Config  string   `mapstructure:"config,omitempty"`
 }
 
 func GetManifest(id string) (*Manifest, error) {
@@ -53,7 +45,7 @@ func GetManifest(id string) (*Manifest, error) {
 	decoderConfig := &mapstructure.DecoderConfig{
 		Metadata:   &decoderMD,
 		DecodeHook: manifestDecodeHook,
-		TagName:    "json",
+		TagName:    "mapstructure",
 		Result:     &manifest,
 	}
 	decoder, err := mapstructure.NewDecoder(decoderConfig)
@@ -69,16 +61,7 @@ func GetManifest(id string) (*Manifest, error) {
 func (m *Manifest) WithInstallDir(dir string) *Manifest {
 	sources := make([]Source, 0)
 	for _, src := range m.Sources {
-		dest, err := filepath.Abs(filepath.Join(dir, src.Destination))
-		if err != nil {
-			dest = filepath.Join(dir, src.Destination)
-		}
-
-		sources = append(sources, Source{
-			Url:         src.Url,
-			Destination: dest,
-			Exports:     src.Exports,
-		})
+		sources = append(sources, src.WithInstallDir(dir))
 	}
 	return &Manifest{
 		Sources: sources,
@@ -87,8 +70,8 @@ func (m *Manifest) WithInstallDir(dir string) *Manifest {
 }
 
 func manifestDecodeHook(typ reflect.Type, target reflect.Type, data any) (any, error) {
-	if typ.Kind() == reflect.String && target == reflect.TypeOf((*url.URL)(nil)).Elem() {
-		return url.Parse(data.(string))
+	if typ.Kind() == reflect.Map && target == reflect.TypeOf((*Source)(nil)).Elem() {
+		return decodeSource(data.(map[string]any))
 	}
 	return data, nil
 }

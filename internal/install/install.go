@@ -2,52 +2,18 @@ package install
 
 import (
 	"context"
-	"errors"
 	"os"
 	"path/filepath"
-	"strings"
 	"text/template"
 
+	"github.com/Lucino772/envelop/pkg/download"
 	"golang.org/x/sync/errgroup"
-	"golang.org/x/text/cases"
-	"golang.org/x/text/language"
 )
 
-type Getter interface {
-	Get(context.Context, string) error
-}
-
-type Decompressor interface {
-	Decompress(context.Context, string, string) error
-}
-
-type SourceProcessor interface {
-	IterTasks(src Source, yield func(*SourceProcessorTask) bool)
-	GetExportVars(src Source) any
-}
-
-type SourceProcessorTask struct {
-	Path         string
-	Getter       Getter
-	Decompressor Decompressor
-}
-
-type Installer struct {
-	sourceProcessors map[string]SourceProcessor
-}
+type Installer struct{}
 
 func NewInstaller() *Installer {
-	return &Installer{
-		sourceProcessors: map[string]SourceProcessor{
-			"http":  &HttpProcessor{},
-			"https": &HttpProcessor{},
-			"data":  &DataProcessor{},
-		},
-	}
-}
-
-func (i *Installer) RegisterSourceProcessor(name string, processor SourceProcessor) {
-	i.sourceProcessors[name] = processor
+	return &Installer{}
 }
 
 func (i *Installer) Install(ctx context.Context, m *Manifest, directory string) error {
@@ -61,18 +27,14 @@ func (i *Installer) Install(ctx context.Context, m *Manifest, directory string) 
 			break
 		}
 
-		processor, ok := i.sourceProcessors[source.Url.Scheme]
-		if !ok {
-			return errors.New("unknown source schema")
-		}
-		processor.IterTasks(source, func(task *SourceProcessorTask) bool {
+		source.IterTasks(func(d *download.Downloader) bool {
 			errg.Go(func() error {
-				return task.run(newCtx)
+				return d.Download(newCtx)
 			})
 			return newCtx.Err() == nil
 		})
 
-		for key, val := range parseExports(source.Exports, processor.GetExportVars(source)) {
+		for key, val := range source.GetExports() {
 			exports[key] = val
 		}
 	}
@@ -98,49 +60,4 @@ func (i *Installer) Install(ctx context.Context, m *Manifest, directory string) 
 		return err
 	}
 	return tmpl.Execute(file, exports)
-}
-
-func (task *SourceProcessorTask) run(ctx context.Context) error {
-	dstPath := task.Path
-	if task.Decompressor != nil {
-		tmpFile, err := os.CreateTemp("", "")
-		if err != nil {
-			if tmpFile != nil {
-				tmpFile.Close()
-			}
-			return err
-		}
-		dstPath = tmpFile.Name()
-		tmpFile.Close()
-	}
-	if err := task.Getter.Get(ctx, dstPath); err != nil {
-		return err
-	}
-	if task.Decompressor != nil {
-		if err := task.Decompressor.Decompress(ctx, dstPath, task.Path); err != nil {
-			return err
-		}
-	}
-	return nil
-}
-
-func parseExports(exports map[string]any, data any) map[string]any {
-	exp := make(map[string]any, 0)
-	for key, value := range exports {
-		formattedKey := cases.Title(language.English, cases.Compact).String(strings.ToLower(key))
-		if stringVal, ok := value.(string); ok {
-			templ, err := template.New(key).Parse(stringVal)
-			if err != nil {
-				continue
-			}
-			var buf strings.Builder
-			if err := templ.Execute(&buf, data); err != nil {
-				continue
-			}
-			exp[formattedKey] = buf.String()
-		} else {
-			exp[formattedKey] = value
-		}
-	}
-	return exp
 }

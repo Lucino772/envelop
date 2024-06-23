@@ -5,10 +5,16 @@
         "sources": {
             "type": "array",
             "items": {
-                "type": "object",
+                "oneOf": [
+                    {
+                        "$ref": "#/definitions/url_source"
+                    }
+                ],
                 "properties": {
-                    "url": {
-                        "type": "string"
+                    "type": {
+                        "enum": [
+                            "url"
+                        ]
                     },
                     "destination": {
                         "type": "string"
@@ -17,7 +23,9 @@
                         "$ref": "#/definitions/exports"
                     }
                 },
-                "required": ["url"]
+                "required": [
+                    "type"
+                ]
             }
         },
         "config": {
@@ -28,6 +36,17 @@
         "sources"
     ],
     "definitions": {
+        "url_source": {
+            "type": "object",
+            "properties": {
+                "url": {
+                    "type": "string"
+                }
+            },
+            "required": [
+                "url"
+            ]
+        },
         "exports": {
             "type": "object",
             "additionalProperties": {

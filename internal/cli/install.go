@@ -4,6 +4,7 @@ import (
 	"context"
 	"log"
 	"os"
+	"path/filepath"
 
 	"github.com/Lucino772/envelop/internal/install"
 	"github.com/spf13/cobra"
@@ -36,6 +37,11 @@ func runInstall(opts *installOptions) (err error) {
 			log.Println("Failed to get working directory")
 			return err
 		}
+	}
+
+	opts.workingDir, err = filepath.Abs(opts.workingDir)
+	if err != nil {
+		return err
 	}
 
 	manifest, err := install.GetManifest(opts.gameId)

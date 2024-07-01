@@ -36,6 +36,15 @@ func ParseIncomingPacket(data []byte) (PacketMsg, error) {
 	}
 }
 
+func ParsePacketData(body io.ReaderFrom, data []byte) ([]byte, error) {
+	var buf = bytes.NewBuffer(data)
+	_, err := body.ReadFrom(buf)
+	if err != nil {
+		return nil, err
+	}
+	return io.ReadAll(buf)
+}
+
 func isProtobuf(m uint64) bool {
 	return (m & uint64(PROTO_MASK)) > 0
 }

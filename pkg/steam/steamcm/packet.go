@@ -53,6 +53,13 @@ func (p *Packet) Header() PacketHeader {
 	return p.header
 }
 
+func (p *Packet) IsProto() bool {
+	if _, ok := p.header.(*ProtoHeader); ok {
+		return true
+	}
+	return false
+}
+
 func (p *Packet) Bytes() []byte {
 	var buf bytes.Buffer
 	if _, err := p.header.WriteTo(&buf); err != nil {

@@ -6,7 +6,7 @@ import (
 	"errors"
 	"io"
 	"os"
-	"path"
+	"path/filepath"
 	"strings"
 )
 
@@ -47,8 +47,8 @@ func (dc *ZipDecompressor) Decompress(ctx context.Context, src string, dst strin
 }
 
 func extractZipFile(file *zip.File, dst string) error {
-	dstPath := path.Join(dst, file.Name)
-	if !strings.HasPrefix(dstPath, path.Clean(dst)+string(os.PathSeparator)) {
+	dstPath := filepath.Join(dst, file.Name)
+	if !strings.HasPrefix(dstPath, filepath.Clean(dst)+string(os.PathSeparator)) {
 		return errors.New("invalid file path")
 	}
 
@@ -56,7 +56,7 @@ func extractZipFile(file *zip.File, dst string) error {
 		return os.MkdirAll(dstPath, os.ModePerm)
 	}
 
-	if err := os.MkdirAll(path.Dir(dstPath), os.ModePerm); err != nil {
+	if err := os.MkdirAll(filepath.Dir(dstPath), os.ModePerm); err != nil {
 		return err
 	}
 

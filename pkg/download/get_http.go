@@ -7,7 +7,7 @@ import (
 	"net/http"
 	"net/url"
 	"os"
-	"path"
+	"path/filepath"
 
 	"github.com/Lucino772/envelop/internal/utils"
 )
@@ -17,7 +17,7 @@ type HttpGetter struct{}
 func (g *HttpGetter) Get(ctx context.Context, u *url.URL, dst string) error {
 	_, err := os.Stat(dst)
 	if errors.Is(err, os.ErrNotExist) {
-		if err := os.MkdirAll(path.Dir(dst), os.ModePerm); err != nil {
+		if err := os.MkdirAll(filepath.Dir(dst), os.ModePerm); err != nil {
 			return err
 		}
 	}

@@ -6,7 +6,7 @@ import (
 	"errors"
 	"io"
 	"os"
-	"path"
+	"path/filepath"
 	"strings"
 )
 
@@ -61,14 +61,14 @@ func untar(ctx context.Context, r io.Reader, dst string) error {
 }
 
 func extractTarFile(tr *tar.Reader, file *tar.Header, dst string) error {
-	dstPath := path.Join(dst, file.Name)
-	if !strings.HasPrefix(dstPath, path.Clean(dst)+string(os.PathSeparator)) {
+	dstPath := filepath.Join(dst, file.Name)
+	if !strings.HasPrefix(dstPath, filepath.Clean(dst)+string(os.PathSeparator)) {
 		return errors.New("invalid file path")
 	}
 	if file.FileInfo().IsDir() {
 		return os.MkdirAll(dstPath, os.ModePerm)
 	}
-	if err := os.MkdirAll(path.Dir(dstPath), os.ModePerm); err != nil {
+	if err := os.MkdirAll(filepath.Dir(dstPath), os.ModePerm); err != nil {
 		return err
 	}
 	dstFile, err := os.OpenFile(dstPath, os.O_WRONLY|os.O_CREATE|os.O_TRUNC, os.FileMode(file.Mode))

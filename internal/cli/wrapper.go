@@ -5,7 +5,7 @@ import (
 	"errors"
 	"log"
 	"os"
-	"path"
+	"path/filepath"
 	"syscall"
 	"time"
 
@@ -42,7 +42,7 @@ func runWrapper(opts *wrapperOptions) (err error) {
 		}
 	}
 
-	conf, err := loadConfig(path.Join(opts.workingDir, "envelop.yaml"))
+	conf, err := loadConfig(filepath.Join(opts.workingDir, "envelop.yaml"))
 	if err != nil {
 		log.Println("Failed to load config")
 		return err

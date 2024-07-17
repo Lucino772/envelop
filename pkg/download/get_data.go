@@ -6,7 +6,7 @@ import (
 	"errors"
 	"net/url"
 	"os"
-	"path"
+	"path/filepath"
 	"strings"
 )
 
@@ -22,7 +22,7 @@ func (g *DataGetter) Get(ctx context.Context, u *url.URL, dst string) error {
 	}
 	_, err = os.Stat(dst)
 	if errors.Is(err, os.ErrNotExist) {
-		if err := os.MkdirAll(path.Dir(dst), os.ModePerm); err != nil {
+		if err := os.MkdirAll(filepath.Dir(dst), os.ModePerm); err != nil {
 			return err
 		}
 	}

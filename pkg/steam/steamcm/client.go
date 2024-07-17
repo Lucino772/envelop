@@ -4,6 +4,7 @@ import (
 	"bytes"
 	"encoding/binary"
 	"io"
+	"log"
 
 	"github.com/Lucino772/envelop/pkg/steam"
 	"github.com/Lucino772/envelop/pkg/steam/steamlang"
@@ -11,12 +12,15 @@ import (
 	"golang.org/x/sync/errgroup"
 )
 
-type CMConnection struct {
-	inner PacketConnection
-	errg  *errgroup.Group
+type CMClient struct {
+	UserHandler *UserHandler
+
+	inner          PacketConnection
+	errg           *errgroup.Group
+	packetHandlers map[steamlang.EMsg]func(*Packet) error
 }
 
-func NewCMConnection() (*CMConnection, error) {
+func NewCMClient() (*CMClient, error) {
 	s := new(Servers)
 	if err := s.Update(); err != nil {
 		return nil, err
@@ -27,23 +31,27 @@ func NewCMConnection() (*CMConnection, error) {
 	if err != nil {
 		return nil, err
 	}
-	cm := &CMConnection{
-		inner: NewEncryptedConnection(steamlang.EUniverse_Public, conn),
-		errg:  &errgroup.Group{},
+	cm := &CMClient{
+		inner:          NewEncryptedConnection(steamlang.EUniverse_Public, conn),
+		errg:           &errgroup.Group{},
+		packetHandlers: make(map[steamlang.EMsg]func(*Packet) error),
 	}
+	cm.UserHandler = &UserHandler{conn: cm}
+	cm.UserHandler.Register(cm.packetHandlers)
+
 	cm.errg.Go(cm.netLoop)
 	return cm, nil
 }
 
-func (conn *CMConnection) SendPacket(packet *Packet) error {
+func (conn *CMClient) SendPacket(packet *Packet) error {
 	return conn.inner.SendPacket(packet)
 }
 
-func (conn *CMConnection) RecvPacket() (*Packet, error) {
+func (conn *CMClient) RecvPacket() (*Packet, error) {
 	return conn.inner.RecvPacket()
 }
 
-func (conn *CMConnection) Close() error {
+func (conn *CMClient) Close() error {
 	err := conn.inner.Close()
 	if err := conn.errg.Wait(); err != nil {
 		return err
@@ -51,7 +59,9 @@ func (conn *CMConnection) Close() error {
 	return err
 }
 
-func (conn *CMConnection) HandlePacket(packet *Packet) (*Packet, error) {
+func (conn *CMClient) HandlePacket(packet *Packet) (*Packet, error) {
+	log.Println("Handling packet:", packet.MsgType())
+
 	packet, err := conn.inner.HandlePacket(packet)
 	if err != nil || packet == nil {
 		return nil, err
@@ -65,12 +75,16 @@ func (conn *CMConnection) HandlePacket(packet *Packet) (*Packet, error) {
 		return nil, conn.handleCMList(packet)
 	case steamlang.EMsg_ClientSessionToken:
 		return nil, conn.handleSessionToken(packet)
-	default:
-		return nil, nil
 	}
+
+	if handler, ok := conn.packetHandlers[packet.MsgType()]; ok {
+		return nil, handler(packet)
+	}
+	return packet, nil
 }
 
-func (conn *CMConnection) netLoop() error {
+func (conn *CMClient) netLoop() error {
+	defer log.Println("NetLoop done !")
 	for {
 		packet, err := conn.RecvPacket()
 		if err != nil {
@@ -82,7 +96,7 @@ func (conn *CMConnection) netLoop() error {
 	}
 }
 
-func (conn *CMConnection) handleMulti(packet *Packet) error {
+func (conn *CMClient) handleMulti(packet *Packet) error {
 	var decoder = &ProtoPacketDecoder[*steampb.CMsgMulti]{
 		Body: new(steampb.CMsgMulti),
 	}
@@ -121,7 +135,7 @@ func (conn *CMConnection) handleMulti(packet *Packet) error {
 	return nil
 }
 
-func (conn *CMConnection) handleServerUnavailable(packet *Packet) error {
+func (conn *CMClient) handleServerUnavailable(packet *Packet) error {
 	var decoder = &PacketDecoder[*MsgClientServerUnavailable]{
 		Body: new(MsgClientServerUnavailable),
 	}
@@ -131,12 +145,12 @@ func (conn *CMConnection) handleServerUnavailable(packet *Packet) error {
 	return conn.Close()
 }
 
-func (conn *CMConnection) handleCMList(_ *Packet) error {
+func (conn *CMClient) handleCMList(_ *Packet) error {
 	// TODO: Read and update CM list
 	return nil
 }
 
-func (conn *CMConnection) handleSessionToken(packet *Packet) error {
+func (conn *CMClient) handleSessionToken(packet *Packet) error {
 	var decoder = &ProtoPacketDecoder[*steampb.CMsgClientSessionToken]{
 		Body: new(steampb.CMsgClientSessionToken),
 	}

@@ -127,7 +127,7 @@ func (conn *EncryptedConnection) handleEncryptRequest(packet *Packet) error {
 		if _, err := dataToEncrypt.Write(randomChallenge); err != nil {
 			return err
 		}
-		conn.encrypter = NewEncrypter(tempSessionKey, randomChallenge)
+		conn.encrypter = NewEncrypter(tempSessionKey, tempSessionKey[:16])
 	} else {
 		conn.encrypter = NewEncrypter(tempSessionKey, nil)
 	}

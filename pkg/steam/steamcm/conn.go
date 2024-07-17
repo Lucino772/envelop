@@ -12,8 +12,15 @@ const (
 )
 
 type Connection interface {
-	SendPacket(packet []byte) error
+	WritePacket([]byte) error
 	ReadPacket() ([]byte, error)
+	Close() error
+}
+
+type PacketConnection interface {
+	SendPacket(*Packet) error
+	RecvPacket() (*Packet, error)
+	HandlePacket(*Packet) (*Packet, error)
 	Close() error
 }
 

@@ -15,6 +15,8 @@ type UserHandler struct {
 
 func (handler *UserHandler) Register(handlers map[steamlang.EMsg]func(*Packet) error) {
 	handlers[steamlang.EMsg_ClientLogOnResponse] = handler.handleClientLogOnResponse
+	handlers[steamlang.EMsg_ClientLoggedOff] = handler.handleClientLoggedOff
+	handlers[steamlang.EMsg_ClientSessionToken] = handler.handleClientSessionToken
 }
 
 func (handler *UserHandler) LogInAnonymously() error {
@@ -54,5 +56,37 @@ func (handler *UserHandler) handleClientLogOnResponse(packet *Packet) error {
 		}
 		log.Println("Login Result:", decoder.Body.Result)
 	}
+	return nil
+}
+
+func (handler *UserHandler) handleClientLoggedOff(packet *Packet) error {
+	if packet.IsProto() {
+		var decoder = &ProtoPacketDecoder[*steampb.CMsgClientLoggedOff]{
+			Body: new(steampb.CMsgClientLoggedOff),
+		}
+		if err := decoder.Decode(packet); err != nil {
+			return err
+		}
+		log.Println("Logged Off Result (Proto):", decoder.Body.GetEresult())
+	} else {
+		var decoder = &PacketDecoder[*MsgClientLoggedOff]{
+			Body: new(MsgClientLoggedOff),
+		}
+		if err := decoder.Decode(packet); err != nil {
+			return err
+		}
+		log.Println("Logged Off Result:", decoder.Body.Result)
+	}
+	return nil
+}
+
+func (handler *UserHandler) handleClientSessionToken(packet *Packet) error {
+	var decoder = &ProtoPacketDecoder[*steampb.CMsgClientSessionToken]{
+		Body: new(steampb.CMsgClientSessionToken),
+	}
+	if err := decoder.Decode(packet); err != nil {
+		return err
+	}
+	log.Println("Session Token:", decoder.Body)
 	return nil
 }

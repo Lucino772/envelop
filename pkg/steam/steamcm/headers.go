@@ -9,16 +9,38 @@ import (
 	"google.golang.org/protobuf/proto"
 )
 
+type PacketHeader interface {
+	io.ReaderFrom
+	io.WriterTo
+
+	GetMsgType() steamlang.EMsg
+	GetTargetJobId() uint64
+	GetSourceJobId() uint64
+}
+
 type StdHeader struct {
 	MsgType     steamlang.EMsg
 	TargetJobId uint64
 	SourceJobId uint64
 }
 
+func (h *StdHeader) GetMsgType() steamlang.EMsg {
+	return h.MsgType
+}
+
+func (h *StdHeader) GetTargetJobId() uint64 {
+	return h.TargetJobId
+}
+
+func (h *StdHeader) GetSourceJobId() uint64 {
+	return h.SourceJobId
+}
+
 func (h *StdHeader) ReadFrom(r io.Reader) (int64, error) {
 	if err := binary.Read(r, binary.LittleEndian, h); err != nil {
 		return -1, err
 	}
+	h.MsgType = GetMsg(uint32(h.MsgType))
 	return int64(binary.Size(h)), nil
 }
 
@@ -40,10 +62,23 @@ type ExtHeader struct {
 	SessionId     int32
 }
 
+func (h *ExtHeader) GetMsgType() steamlang.EMsg {
+	return h.MsgType
+}
+
+func (h *ExtHeader) GetTargetJobId() uint64 {
+	return h.TargetJobId
+}
+
+func (h *ExtHeader) GetSourceJobId() uint64 {
+	return h.SourceJobId
+}
+
 func (h *ExtHeader) ReadFrom(r io.Reader) (int64, error) {
 	if err := binary.Read(r, binary.LittleEndian, h); err != nil {
 		return -1, err
 	}
+	h.MsgType = GetMsg(uint32(h.MsgType))
 	return int64(binary.Size(h)), nil
 }
 
@@ -57,7 +92,19 @@ func (h *ExtHeader) WriteTo(w io.Writer) (int64, error) {
 type ProtoHeader struct {
 	MsgType   steamlang.EMsg
 	HeaderLen int32
-	Proto     steampb.CMsgProtoBufHeader
+	Proto     *steampb.CMsgProtoBufHeader
+}
+
+func (h *ProtoHeader) GetMsgType() steamlang.EMsg {
+	return h.MsgType
+}
+
+func (h *ProtoHeader) GetTargetJobId() uint64 {
+	return h.Proto.GetJobidTarget()
+}
+
+func (h *ProtoHeader) GetSourceJobId() uint64 {
+	return h.Proto.GetJobidSource()
 }
 
 func (h *ProtoHeader) ReadFrom(r io.Reader) (int64, error) {
@@ -65,6 +112,7 @@ func (h *ProtoHeader) ReadFrom(r io.Reader) (int64, error) {
 	if err := binary.Read(r, binary.LittleEndian, &h.MsgType); err != nil {
 		return nbytes, err
 	}
+	h.MsgType = GetMsg(uint32(h.MsgType))
 	nbytes += int64(binary.Size(h.MsgType))
 	if err := binary.Read(r, binary.LittleEndian, &h.HeaderLen); err != nil {
 		return nbytes, err
@@ -75,7 +123,9 @@ func (h *ProtoHeader) ReadFrom(r io.Reader) (int64, error) {
 		return nbytes, err
 	}
 	nbytes += int64(len(headerBytes))
-	if err := proto.Unmarshal(headerBytes, &h.Proto); err != nil {
+
+	h.Proto = new(steampb.CMsgProtoBufHeader)
+	if err := proto.Unmarshal(headerBytes, h.Proto); err != nil {
 		return nbytes, err
 	}
 	return nbytes, nil
@@ -83,12 +133,15 @@ func (h *ProtoHeader) ReadFrom(r io.Reader) (int64, error) {
 
 func (h *ProtoHeader) WriteTo(w io.Writer) (int64, error) {
 	var nbytes int64 = 0
-	if err := binary.Write(w, binary.LittleEndian, h.MsgType); err != nil {
+	if err := binary.Write(w, binary.LittleEndian, MakeMsg(h.MsgType, true)); err != nil {
 		return nbytes, err
 	}
 	nbytes += int64(binary.Size(h.MsgType))
 
-	headerBytes, err := proto.Marshal(&h.Proto)
+	if h.Proto == nil {
+		h.Proto = new(steampb.CMsgProtoBufHeader)
+	}
+	headerBytes, err := proto.Marshal(h.Proto)
 	if err != nil {
 		return nbytes, err
 	}

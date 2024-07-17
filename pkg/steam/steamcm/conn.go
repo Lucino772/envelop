@@ -3,6 +3,7 @@ package steamcm
 import (
 	"encoding/binary"
 	"errors"
+	"fmt"
 	"io"
 	"net"
 )
@@ -28,7 +29,15 @@ type TCPConnection struct {
 	inner net.Conn
 }
 
-func (conn *TCPConnection) SendPacket(packet []byte) error {
+func NewTCPConnection(host string, port uint16) (Connection, error) {
+	conn, err := net.Dial("tcp", fmt.Sprintf("%s:%d", host, port))
+	if err != nil {
+		return nil, err
+	}
+	return &TCPConnection{inner: conn}, nil
+}
+
+func (conn *TCPConnection) WritePacket(packet []byte) error {
 	var pktHeader = struct {
 		PktLen   uint32
 		PktMagic uint32

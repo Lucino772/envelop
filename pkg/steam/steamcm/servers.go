@@ -1,16 +1,15 @@
 package steamcm
 
 import (
-	"encoding/json"
 	"errors"
 	"fmt"
-	"io"
 	"log"
 	"net"
-	"net/http"
 	"net/url"
 	"strconv"
 	"strings"
+
+	"github.com/Lucino772/envelop/pkg/steam/steamweb"
 )
 
 type ServerRecord struct {
@@ -37,6 +36,7 @@ func (s *Servers) Update() error {
 }
 
 func (s *Servers) fetchFromWebApi(cellId int, maxCnt int) error {
+	client := steamweb.NewClient()
 	type serverResponse struct {
 		Response struct {
 			ServerList   []string `json:"serverlist,omitempty"`
@@ -46,28 +46,13 @@ func (s *Servers) fetchFromWebApi(cellId int, maxCnt int) error {
 		} `json:"response,omitempty"`
 	}
 
-	var u = url.URL{
-		Scheme: "https",
-		Host:   "api.steampowered.com",
-		Path:   fmt.Sprintf("/ISteamDirectory/GetCMList/v%d/", 1),
-	}
-	q := u.Query()
-	q.Add("cellid", fmt.Sprint(cellId))
-	q.Add("maxcount", fmt.Sprint(maxCnt))
-	u.RawQuery = q.Encode()
-
-	resp, err := http.Get(u.String())
-	if err != nil {
-		return err
-	}
-	defer resp.Body.Close()
-	data, err := io.ReadAll(resp.Body)
-	if err != nil {
-		return err
-	}
+	var params = make(url.Values)
+	params.Add("cellid", fmt.Sprint(cellId))
+	params.Add("maxcount", fmt.Sprint(maxCnt))
+	var u = client.Url("ISteamDirectory", "GetCMList", 1, params)
 
 	var serverResp serverResponse
-	if err := json.Unmarshal(data, &serverResp); err != nil {
+	if err := client.CallJson(u, &serverResp); err != nil {
 		return err
 	}
 

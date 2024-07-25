@@ -1,13 +1,13 @@
 package minecraft
 
 import (
-	"bufio"
 	"context"
 	"errors"
 	"net"
 	"time"
 
 	"github.com/Lucino772/envelop/internal/wrapper"
+	"github.com/Lucino772/envelop/pkg/minecraft/query"
 	"golang.org/x/sync/errgroup"
 )
 
@@ -28,12 +28,29 @@ func (task *fetchMinecraftPlayersTask) Run(ctx context.Context) error {
 		return errors.New("query is not enabled")
 	}
 
+	result := make(chan *query.QueryStats)
+	defer close(result)
+
+	var d net.Dialer
+	wg := new(errgroup.Group)
+	wg.SetLimit(1)
 	for {
+		conn, err := d.DialContext(ctx, "udp", "localhost:25565")
+		if err != nil {
+			return err
+		}
+		wg.Go(func() error {
+			stats, err := query.GetStats(conn)
+			if err != nil {
+				return err
+			}
+			result <- stats
+			return nil
+		})
 		select {
 		case <-ctx.Done():
-			return ctx.Err()
-		default:
-			stats, _ := task.queryStats(ctx)
+			conn.Close()
+		case stats := <-result:
 			if stats != nil {
 				wp.PlayerState().Set(wrapper.PlayerState{
 					Count:   int(stats.NumPlayers),
@@ -41,6 +58,9 @@ func (task *fetchMinecraftPlayersTask) Run(ctx context.Context) error {
 					Players: stats.Players,
 				})
 			}
+		}
+		if err := wg.Wait(); err != nil {
+			return err
 		}
 	}
 }
@@ -80,44 +100,4 @@ func (task *fetchMinecraftPlayersTask) waitQueryReady(ctx context.Context, wp wr
 	}
 
 	return queryReady
-}
-
-func (task *fetchMinecraftPlayersTask) queryStats(ctx context.Context) (*QueryStats, error) {
-	var d net.Dialer
-	conn, err := d.DialContext(ctx, "udp", "localhost:25565")
-	if err != nil {
-		return nil, err
-	}
-
-	resultChan := make(chan *QueryStats)
-	wg := new(errgroup.Group)
-	wg.Go(func() error {
-		defer close(resultChan)
-		if err := conn.SetDeadline(time.Now().Add(5 * time.Second)); err != nil {
-			return err
-		}
-
-		client := &queryClient{
-			Conn:   conn,
-			sessId: int32(time.Now().Unix()) & 0x0F0F0F0F,
-			reader: &buffer{bufio.NewReaderSize(conn, 1472)},
-		}
-		if err := client.Challenge(); err != nil {
-			return err
-		}
-		stats, err := client.QueryStats()
-		if err != nil {
-			return err
-		}
-		resultChan <- stats
-		return nil
-	})
-
-	var stats *QueryStats
-	select {
-	case stats = <-resultChan:
-	case <-ctx.Done():
-	}
-	conn.Close()
-	return stats, wg.Wait()
 }

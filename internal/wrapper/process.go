@@ -5,6 +5,7 @@ import (
 	"os"
 	"os/signal"
 	"sync"
+	"syscall"
 
 	"github.com/go-cmd/cmd"
 )
@@ -12,7 +13,7 @@ import (
 func (wp *Wrapper) runProcess(ctx context.Context) {
 	defer wp.stdinWriter.Close()
 	signalChan := make(chan os.Signal, 1)
-	signal.Notify(signalChan, os.Interrupt)
+	signal.Notify(signalChan, os.Interrupt, syscall.SIGTERM)
 	statusChan := wp.cmd.StartWithStdin(wp.stdinReader)
 	go wp.produceLogs()
 

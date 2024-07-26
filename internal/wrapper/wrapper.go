@@ -6,6 +6,7 @@ import (
 	"net"
 	"os"
 	"os/signal"
+	"slices"
 	"sync"
 	"syscall"
 
@@ -49,7 +50,7 @@ func NewWrapper(program string, args []string, opts ...WrapperOptFunc) (*Wrapper
 		Streaming: true,
 	}, program, args...)
 	command.Dir = options.dir
-	command.Env = options.env
+	command.Env = slices.Concat(os.Environ(), options.env)
 
 	wrapper := &Wrapper{
 		options:        options,
@@ -139,8 +140,9 @@ func (wp *Wrapper) runProcess(ctx context.Context) error {
 	case <-signalChan:
 		wp.gracefulStop(statusChan)
 		err = wp.cmd.Stop()
-	case <-statusChan:
+	case status := <-statusChan:
 		signal.Stop(signalChan)
+		err = status.Error
 	}
 	wg.Wait()
 	return err

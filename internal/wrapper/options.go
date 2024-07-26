@@ -92,6 +92,28 @@ func WithForwardLogToEvent() WrapperOptFunc {
 	}
 }
 
+func WithForwardStateToEvent() WrapperOptFunc {
+	return func(options *wrapperOptions) {
+		options.AddTask(func(ctx context.Context) error {
+			wp, err := FromContext(ctx)
+			if err != nil {
+				return err
+			}
+
+			sub := wp.SubscribeStates()
+			defer sub.Unsubscribe()
+
+			for state := range sub.Messages() {
+				wp.PublishEvent(StateUpdateEvent{
+					Name: state.GetStateName(),
+					Data: state,
+				})
+			}
+			return nil
+		})
+	}
+}
+
 func WithWorkingDirectory(dir string) WrapperOptFunc {
 	return func(options *wrapperOptions) {
 		options.dir = dir

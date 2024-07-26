@@ -34,8 +34,9 @@ type WrapperContext interface {
 	SubscribeLogs() *pubsub.Subscriber[string]
 	SubscribeEvents() *pubsub.Subscriber[Event]
 	PublishEvent(event WrapperEvent)
-	ProcessStatusState() WrapperStateProperty[ProcessStatusState]
-	PlayerState() WrapperStateProperty[PlayerState]
+	ReadState(state WrapperState) bool
+	SubscribeStates() *StateSubscriber
+	PublishState(state WrapperState)
 }
 
 func FromContext(ctx context.Context) (WrapperContext, error) {
@@ -80,10 +81,14 @@ func (wp *Wrapper) PublishEvent(event WrapperEvent) {
 	})
 }
 
-func (wp *Wrapper) ProcessStatusState() WrapperStateProperty[ProcessStatusState] {
-	return wp.processStatusState
+func (wp *Wrapper) ReadState(state WrapperState) bool {
+	return wp.stateManager.Read(state)
 }
 
-func (wp *Wrapper) PlayerState() WrapperStateProperty[PlayerState] {
-	return wp.playerState
+func (wp *Wrapper) SubscribeStates() *StateSubscriber {
+	return wp.stateManager.Subscribe()
+}
+
+func (wp *Wrapper) PublishState(state WrapperState) {
+	wp.stateManager.Publish(state)
 }

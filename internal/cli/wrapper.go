@@ -60,6 +60,7 @@ func runWrapper(opts *wrapperOptions) (err error) {
 		wrapper.WithGracefulTimeout(time.Duration(conf.Process.Graceful.Timeout)*time.Second),
 		wrapper.WithForwardLogToEvent(),
 		wrapper.WithForwardLogToStdout(),
+		wrapper.WithForwardStateToEvent(),
 	)
 	if conf.Process.Graceful.Type == "cmd" {
 		options = append(

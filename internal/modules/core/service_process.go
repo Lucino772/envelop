@@ -2,6 +2,7 @@ package core
 
 import (
 	"context"
+	"errors"
 
 	"github.com/Lucino772/envelop/internal/wrapper"
 	pb "github.com/Lucino772/envelop/pkg/protobufs"
@@ -22,7 +23,10 @@ func (service *coreProcessService) GetStatus(ctx context.Context, _ *emptypb.Emp
 	if err != nil {
 		return nil, err
 	}
-	state := wp.ProcessStatusState().Get()
+	var state wrapper.ProcessStatusState
+	if ok := wp.ReadState(&state); !ok {
+		return nil, errors.New("failed to read process status state")
+	}
 	return &pb.Status{
 		Value: state.Description,
 	}, nil
@@ -34,20 +38,16 @@ func (service *coreProcessService) StreamStatus(_ *emptypb.Empty, stream pb.Proc
 		return err
 	}
 
-	sub := wp.SubscribeEvents()
+	sub := wp.SubscribeStates()
 	defer sub.Unsubscribe()
 
-	for event := range sub.Messages() {
-		if event.Name == "/state/update" {
-			if eventData, ok := event.Data.(wrapper.StateUpdateEvent); ok {
-				if state, ok := eventData.Data.(wrapper.ProcessStatusState); ok {
-					status := &pb.Status{
-						Value: state.Description,
-					}
-					if err := stream.Send(status); err != nil {
-						return err
-					}
-				}
+	for state := range sub.Messages() {
+		if processState, ok := state.(*wrapper.ProcessStatusState); ok {
+			status := &pb.Status{
+				Value: processState.Description,
+			}
+			if err := stream.Send(status); err != nil {
+				return err
 			}
 		}
 	}

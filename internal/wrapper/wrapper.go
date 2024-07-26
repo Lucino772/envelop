@@ -4,7 +4,6 @@ import (
 	"context"
 	"io"
 	"os"
-	"sync"
 
 	"github.com/Lucino772/envelop/pkg/pubsub"
 	"github.com/go-cmd/cmd"
@@ -18,9 +17,7 @@ type Wrapper struct {
 	stdinWriter    io.WriteCloser
 	logsProducer   *pubsub.Producer[string]
 	eventsProducer *pubsub.Producer[Event]
-
-	processStatusState *stateProperty[ProcessStatusState]
-	playerState        *stateProperty[PlayerState]
+	stateManager   *StateManager
 }
 
 func NewWrapper(program string, args []string, opts ...WrapperOptFunc) (*Wrapper, error) {
@@ -47,20 +44,7 @@ func NewWrapper(program string, args []string, opts ...WrapperOptFunc) (*Wrapper
 		stdinWriter:    stdinWriter,
 		logsProducer:   pubsub.NewProducer[string](5),
 		eventsProducer: pubsub.NewProducer[Event](5),
-	}
-	wrapper.processStatusState = &stateProperty[ProcessStatusState]{
-		state: ProcessStatusState{
-			Description: "Unknown",
-		},
-		notify: wrapper.updateState,
-	}
-	wrapper.playerState = &stateProperty[PlayerState]{
-		state: PlayerState{
-			Count:   0,
-			Max:     0,
-			Players: []string{},
-		},
-		notify: wrapper.updateState,
+		stateManager:   NewStateManager(5),
 	}
 	return wrapper, nil
 }
@@ -72,6 +56,7 @@ func (wp *Wrapper) Run(parent context.Context) error {
 	wp.options.tasks = append(
 		wp.options.tasks,
 		wp.eventsProducer.Run,
+		wp.stateManager.Run,
 		wp.logsProducer.Run,
 	)
 
@@ -101,31 +86,4 @@ func (wp *Wrapper) Run(parent context.Context) error {
 	err := mainErrGroup.Wait()
 	taskErrGroup.Wait()
 	return err
-}
-
-func (wp *Wrapper) updateState(state WrapperState) {
-	wp.PublishEvent(StateUpdateEvent{
-		Name: state.GetStateName(),
-		Data: state,
-	})
-}
-
-type stateProperty[T WrapperState] struct {
-	state  T
-	mu     sync.Mutex
-	notify func(WrapperState)
-}
-
-func (property *stateProperty[T]) Get() T {
-	return property.state
-}
-
-func (property *stateProperty[T]) Set(state T) {
-	property.mu.Lock()
-	defer property.mu.Unlock()
-
-	if !property.state.Equals(state) {
-		property.state = state
-		property.notify(state)
-	}
 }

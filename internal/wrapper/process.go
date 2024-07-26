@@ -10,7 +10,7 @@ import (
 	"github.com/go-cmd/cmd"
 )
 
-func (wp *Wrapper) runProcess(ctx context.Context) {
+func (wp *Wrapper) runProcess(ctx context.Context) error {
 	defer wp.stdinWriter.Close()
 	signalChan := make(chan os.Signal, 1)
 	signal.Notify(signalChan, os.Interrupt, syscall.SIGTERM)
@@ -20,12 +20,13 @@ func (wp *Wrapper) runProcess(ctx context.Context) {
 	select {
 	case <-ctx.Done():
 		wp.gracefulStop(statusChan)
-		wp.cmd.Stop()
+		return wp.cmd.Stop()
 	case <-signalChan:
 		wp.gracefulStop(statusChan)
-		wp.cmd.Stop()
+		return wp.cmd.Stop()
 	case <-statusChan:
 		signal.Stop(signalChan)
+		return nil
 	}
 }
 

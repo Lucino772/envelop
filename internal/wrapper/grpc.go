@@ -16,10 +16,10 @@ func (w *defaultGrpcWrappedStream) Context() context.Context {
 	return w.ctx
 }
 
-func (wp *Wrapper) startGrpc() (*grpc.Server, error) {
+func (wp *Wrapper) runGrpcServer(ctx context.Context) error {
 	lis, err := net.Listen("tcp", "0.0.0.0:8791")
 	if err != nil {
-		return nil, err
+		return err
 	}
 	grpcServer := grpc.NewServer(
 		wp.withUnaryInterceptor(),
@@ -28,8 +28,23 @@ func (wp *Wrapper) startGrpc() (*grpc.Server, error) {
 	for _, service := range wp.options.services {
 		service.Register(grpcServer)
 	}
-	go grpcServer.Serve(lis)
-	return grpcServer, nil
+
+	quit := make(chan error)
+	go func() {
+		defer close(quit)
+		err := grpcServer.Serve(lis)
+		if err != nil {
+			quit <- err
+		}
+	}()
+
+	select {
+	case <-ctx.Done():
+		grpcServer.Stop()
+		return nil
+	case err := <-quit:
+		return err
+	}
 }
 
 func (wp *Wrapper) withUnaryInterceptor() grpc.ServerOption {

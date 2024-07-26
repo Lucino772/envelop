@@ -74,24 +74,33 @@ func (wp *Wrapper) Run(parent context.Context) error {
 		wp.eventsProducer.Run,
 		wp.logsProducer.Run,
 	)
-	grpcServer, err := wp.startGrpc()
-	if err != nil {
-		return err
-	}
-	defer grpcServer.Stop()
 
-	errg, _ := errgroup.WithContext(ctx)
-	errg.SetLimit(-1)
+	var (
+		mainErrGroup, mainCtx = errgroup.WithContext(ctx)
+		taskErrGroup, _       = errgroup.WithContext(mainCtx)
+	)
+	mainErrGroup.SetLimit(2)
+	taskErrGroup.SetLimit(-1)
+
 	for _, task := range wp.options.tasks {
 		task := task
-		errg.Go(func() error {
-			return task(ctx)
+		taskErrGroup.Go(func() error {
+			return task(mainCtx)
 		})
 	}
 
-	wp.runProcess(ctx)
-	cancel()
-	return errg.Wait()
+	mainErrGroup.Go(func() error {
+		defer cancel()
+		return wp.runGrpcServer(mainCtx)
+	})
+	mainErrGroup.Go(func() error {
+		defer cancel()
+		return wp.runProcess(mainCtx)
+	})
+
+	err := mainErrGroup.Wait()
+	taskErrGroup.Wait()
+	return err
 }
 
 func (wp *Wrapper) updateState(state WrapperState) {

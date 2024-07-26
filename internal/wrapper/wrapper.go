@@ -3,11 +3,16 @@ package wrapper
 import (
 	"context"
 	"io"
+	"net"
 	"os"
+	"os/signal"
+	"sync"
+	"syscall"
 
 	"github.com/Lucino772/envelop/pkg/pubsub"
 	"github.com/go-cmd/cmd"
 	"golang.org/x/sync/errgroup"
+	"google.golang.org/grpc"
 )
 
 type Wrapper struct {
@@ -18,6 +23,15 @@ type Wrapper struct {
 	logsProducer   pubsub.Publisher[string]
 	eventsProducer pubsub.Publisher[Event]
 	stateManager   *StatePublisher
+}
+
+type defaultGrpcWrappedStream struct {
+	grpc.ServerStream
+	ctx context.Context
+}
+
+func (w *defaultGrpcWrappedStream) Context() context.Context {
+	return w.ctx
 }
 
 func NewWrapper(program string, args []string, opts ...WrapperOptFunc) (*Wrapper, error) {
@@ -86,4 +100,98 @@ func (wp *Wrapper) Run(parent context.Context) error {
 	err := mainErrGroup.Wait()
 	taskErrGroup.Wait()
 	return err
+}
+
+func (wp *Wrapper) runProcess(ctx context.Context) error {
+	defer wp.stdinWriter.Close()
+
+	signalChan := make(chan os.Signal, 1)
+	signal.Notify(signalChan, os.Interrupt, syscall.SIGTERM)
+	statusChan := wp.cmd.StartWithStdin(wp.stdinReader)
+
+	var wg sync.WaitGroup
+	wg.Add(1)
+	go func() {
+		defer wg.Done()
+		for value := range wp.cmd.Stdout {
+			wp.logsProducer.Publish(value)
+		}
+	}()
+	wg.Add(1)
+	go func() {
+		defer wg.Done()
+		for value := range wp.cmd.Stderr {
+			wp.logsProducer.Publish(value)
+		}
+	}()
+
+	var err error = nil
+	select {
+	case <-ctx.Done():
+		wp.gracefulStop(statusChan)
+		err = wp.cmd.Stop()
+	case <-signalChan:
+		wp.gracefulStop(statusChan)
+		err = wp.cmd.Stop()
+	case <-statusChan:
+		signal.Stop(signalChan)
+	}
+	wg.Wait()
+	return err
+}
+
+func (wp *Wrapper) gracefulStop(statusChan <-chan cmd.Status) (bool, error) {
+	ctx, cancel := context.WithTimeout(context.Background(), wp.options.gracefulTimeout)
+	defer cancel()
+
+	err := wp.options.gracefulStopper(wp)
+	if err != nil {
+		return false, err
+	}
+
+	select {
+	case <-statusChan:
+		return true, nil
+	case <-ctx.Done():
+		return false, nil
+	}
+}
+
+func (wp *Wrapper) runGrpcServer(ctx context.Context) error {
+	lis, err := net.Listen("tcp", "0.0.0.0:8791")
+	if err != nil {
+		return err
+	}
+	grpcServer := grpc.NewServer(
+		grpc.UnaryInterceptor(
+			func(ctx context.Context, req any, info *grpc.UnaryServerInfo, handler grpc.UnaryHandler) (resp any, err error) {
+				return handler(wp.withContext(ctx), req)
+			},
+		),
+		grpc.StreamInterceptor(
+			func(srv any, ss grpc.ServerStream, info *grpc.StreamServerInfo, handler grpc.StreamHandler) error {
+				return handler(srv, &defaultGrpcWrappedStream{ss, wp.withContext(ss.Context())})
+			},
+		),
+	)
+	for _, service := range wp.options.services {
+		service.Register(grpcServer)
+	}
+
+	quit := make(chan error)
+	go func() {
+		defer close(quit)
+		err := grpcServer.Serve(lis)
+		if err != nil {
+			quit <- err
+		}
+	}()
+
+	select {
+	case <-ctx.Done():
+		grpcServer.Stop()
+		return nil
+	case err := <-quit:
+		return err
+	}
 }

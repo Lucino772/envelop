@@ -3,73 +3,103 @@ package pubsub
 import (
 	"context"
 	"sync"
-	"time"
 
 	"golang.org/x/sync/errgroup"
 )
 
-type Subscriber[T any] struct {
-	messages      chan T
-	unsubscribeFn func(*Subscriber[T])
+type Subscriber[T any] interface {
+	Receive() <-chan T
+	Send() chan<- T
+	Unsubscribe()
 }
 
-func (s *Subscriber[T]) Messages() <-chan T {
-	return s.messages
+type Publisher[T any] interface {
+	Publish(v T)
+	Subscribe() Subscriber[T]
+	Run(ctx context.Context) error
+	Stop()
 }
 
-func (s *Subscriber[T]) Unsubscribe() {
-	s.unsubscribeFn(s)
+type subscriber[T any] struct {
+	channel       chan T
+	unsubscribeFn func(Subscriber[T])
+	closed        bool
 }
 
-type Producer[T any] struct {
+func NewSubscriber[T any](unsubscribeFn func(Subscriber[T])) Subscriber[T] {
+	return &subscriber[T]{
+		channel:       make(chan T),
+		unsubscribeFn: unsubscribeFn,
+		closed:        false,
+	}
+}
+
+func (s *subscriber[T]) Receive() <-chan T {
+	return s.channel
+}
+
+func (s *subscriber[T]) Send() chan<- T {
+	return s.channel
+}
+
+func (s *subscriber[T]) Unsubscribe() {
+	if !s.closed {
+		if s.unsubscribeFn != nil {
+			s.unsubscribeFn(s)
+		}
+		close(s.channel)
+		s.closed = true
+	}
+}
+
+type publisher[T any] struct {
 	mu          sync.Mutex
 	incoming    chan T
-	subscribers []*Subscriber[T]
+	subscribers []Subscriber[T]
+	processMsg  func(T) (T, bool)
 	closed      bool
 }
 
-func NewProducer[T any](chanSize int) *Producer[T] {
-	return &Producer[T]{
-		subscribers: make([]*Subscriber[T], 0),
+func NewPublisher[T any](chanSize int, processMsg func(T) (T, bool)) Publisher[T] {
+	return &publisher[T]{
+		subscribers: make([]Subscriber[T], 0),
 		incoming:    make(chan T, chanSize),
+		processMsg:  processMsg,
 		closed:      false,
 	}
 }
 
-func (p *Producer[T]) Publish(v T) {
+func (p *publisher[T]) Publish(v T) {
 	if !p.closed {
 		p.incoming <- v
 	}
 }
 
-func (p *Producer[T]) Subscribe() *Subscriber[T] {
+func (p *publisher[T]) Subscribe() Subscriber[T] {
 	p.mu.Lock()
 	defer p.mu.Unlock()
 
 	if p.closed {
 		return nil
 	}
-	sub := &Subscriber[T]{
-		messages:      make(chan T),
-		unsubscribeFn: p.unsubscribe,
-	}
+	sub := NewSubscriber(p.unsubscribe)
 	p.subscribers = append(p.subscribers, sub)
 	return sub
 }
 
-func (p *Producer[T]) Close() {
-	if p.closed {
-		return
-	}
-	p.closed = true
-	close(p.incoming)
-	for _, sub := range p.subscribers[:] {
-		p.unsubscribe(sub)
+func (p *publisher[T]) Stop() {
+	if !p.closed {
+		p.closed = true
+		close(p.incoming)
 	}
 }
 
-func (p *Producer[T]) Run(ctx context.Context) error {
-	defer p.Close()
+func (p *publisher[T]) Run(ctx context.Context) error {
+	defer func() {
+		for _, sub := range p.subscribers[:] {
+			sub.Unsubscribe()
+		}
+	}()
 
 	for {
 		select {
@@ -77,12 +107,20 @@ func (p *Producer[T]) Run(ctx context.Context) error {
 			if !ok {
 				return nil
 			}
-			eg := new(errgroup.Group)
-			for _, sub := range p.subscribers {
-				eg.Go(p.messageSender(ctx, msg, sub))
+
+			var doNotify bool = true
+			if p.processMsg != nil {
+				msg, doNotify = p.processMsg(msg)
 			}
-			if err := eg.Wait(); err != nil {
-				return err
+
+			if doNotify {
+				wg, _ := errgroup.WithContext(ctx)
+				for _, sub := range p.subscribers {
+					wg.Go(p.getSender(ctx, msg, sub))
+				}
+				if err := wg.Wait(); err != nil {
+					return err
+				}
 			}
 		case <-ctx.Done():
 			return ctx.Err()
@@ -90,13 +128,10 @@ func (p *Producer[T]) Run(ctx context.Context) error {
 	}
 }
 
-func (p *Producer[T]) messageSender(parent context.Context, msg T, s *Subscriber[T]) func() error {
+func (p *publisher[T]) getSender(ctx context.Context, msg T, s Subscriber[T]) func() error {
 	return func() error {
-		ctx, cancel := context.WithTimeout(parent, 5*time.Second)
-		defer cancel()
-
 		select {
-		case s.messages <- msg:
+		case s.Send() <- msg:
 			return nil
 		case <-ctx.Done():
 			return ctx.Err()
@@ -104,7 +139,7 @@ func (p *Producer[T]) messageSender(parent context.Context, msg T, s *Subscriber
 	}
 }
 
-func (p *Producer[T]) unsubscribe(s *Subscriber[T]) {
+func (p *publisher[T]) unsubscribe(s Subscriber[T]) {
 	p.mu.Lock()
 	defer p.mu.Unlock()
 
@@ -112,7 +147,6 @@ func (p *Producer[T]) unsubscribe(s *Subscriber[T]) {
 		if sub == s {
 			p.subscribers[ix] = p.subscribers[len(p.subscribers)-1]
 			p.subscribers = p.subscribers[:len(p.subscribers)-1]
-			close(sub.messages)
 		}
 	}
 }

@@ -25,7 +25,7 @@ func (service *coreSystemService) StreamEvents(_ *emptypb.Empty, stream pb.Syste
 	sub := wp.SubscribeEvents()
 	defer sub.Unsubscribe()
 
-	for event := range sub.Messages() {
+	for event := range sub.Receive() {
 		evData, err := json.Marshal(event.Data)
 		if err != nil {
 			return err

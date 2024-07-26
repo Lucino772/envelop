@@ -15,9 +15,9 @@ type Wrapper struct {
 	cmd            *cmd.Cmd
 	stdinReader    io.Reader
 	stdinWriter    io.WriteCloser
-	logsProducer   *pubsub.Producer[string]
-	eventsProducer *pubsub.Producer[Event]
-	stateManager   *StateManager
+	logsProducer   pubsub.Publisher[string]
+	eventsProducer pubsub.Publisher[Event]
+	stateManager   *StatePublisher
 }
 
 func NewWrapper(program string, args []string, opts ...WrapperOptFunc) (*Wrapper, error) {
@@ -42,9 +42,9 @@ func NewWrapper(program string, args []string, opts ...WrapperOptFunc) (*Wrapper
 		cmd:            command,
 		stdinReader:    stdinReader,
 		stdinWriter:    stdinWriter,
-		logsProducer:   pubsub.NewProducer[string](5),
-		eventsProducer: pubsub.NewProducer[Event](5),
-		stateManager:   NewStateManager(5),
+		logsProducer:   pubsub.NewPublisher[string](5, nil),
+		eventsProducer: pubsub.NewPublisher[Event](5, nil),
+		stateManager:   NewStatePublisher(5),
 	}
 	return wrapper, nil
 }

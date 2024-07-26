@@ -31,11 +31,11 @@ type WrapperStateProperty[T WrapperState] interface {
 type WrapperContext interface {
 	WriteCommand(command string) error
 	SendSignal(signal os.Signal) error
-	SubscribeLogs() *pubsub.Subscriber[string]
-	SubscribeEvents() *pubsub.Subscriber[Event]
+	SubscribeLogs() pubsub.Subscriber[string]
+	SubscribeEvents() pubsub.Subscriber[Event]
 	PublishEvent(event WrapperEvent)
 	ReadState(state WrapperState) bool
-	SubscribeStates() *StateSubscriber
+	SubscribeStates() pubsub.Subscriber[WrapperState]
 	PublishState(state WrapperState)
 }
 
@@ -64,11 +64,11 @@ func (wp *Wrapper) SendSignal(signal os.Signal) error {
 	return process.Signal(signal)
 }
 
-func (wp *Wrapper) SubscribeLogs() *pubsub.Subscriber[string] {
+func (wp *Wrapper) SubscribeLogs() pubsub.Subscriber[string] {
 	return wp.logsProducer.Subscribe()
 }
 
-func (wp *Wrapper) SubscribeEvents() *pubsub.Subscriber[Event] {
+func (wp *Wrapper) SubscribeEvents() pubsub.Subscriber[Event] {
 	return wp.eventsProducer.Subscribe()
 }
 
@@ -85,7 +85,7 @@ func (wp *Wrapper) ReadState(state WrapperState) bool {
 	return wp.stateManager.Read(state)
 }
 
-func (wp *Wrapper) SubscribeStates() *StateSubscriber {
+func (wp *Wrapper) SubscribeStates() pubsub.Subscriber[WrapperState] {
 	return wp.stateManager.Subscribe()
 }
 

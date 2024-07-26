@@ -63,7 +63,7 @@ func WithForwardLogToStdout() WrapperOptFunc {
 			sub := wp.SubscribeLogs()
 			defer sub.Unsubscribe()
 
-			for item := range sub.Messages() {
+			for item := range sub.Receive() {
 				log.Println(item)
 			}
 			return nil
@@ -82,7 +82,7 @@ func WithForwardLogToEvent() WrapperOptFunc {
 			sub := wp.SubscribeLogs()
 			defer sub.Unsubscribe()
 
-			for item := range sub.Messages() {
+			for item := range sub.Receive() {
 				wp.PublishEvent(ProcessLogEvent{
 					Value: item,
 				})
@@ -103,7 +103,7 @@ func WithForwardStateToEvent() WrapperOptFunc {
 			sub := wp.SubscribeStates()
 			defer sub.Unsubscribe()
 
-			for state := range sub.Messages() {
+			for state := range sub.Receive() {
 				wp.PublishEvent(StateUpdateEvent{
 					Name: state.GetStateName(),
 					Data: state,

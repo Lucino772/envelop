@@ -23,11 +23,6 @@ type WrapperState interface {
 	Equals(WrapperState) bool
 }
 
-type WrapperStateProperty[T WrapperState] interface {
-	Get() T
-	Set(T)
-}
-
 type WrapperContext interface {
 	WriteCommand(command string) error
 	SendSignal(signal os.Signal) error

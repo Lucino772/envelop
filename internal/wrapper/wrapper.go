@@ -116,13 +116,13 @@ func (wp *Wrapper) runProcess(ctx context.Context) error {
 		defer wg.Done()
 		for {
 			select {
-			case value, closed := <-wp.cmd.Stdout:
-				if !closed {
+			case value, ok := <-wp.cmd.Stdout:
+				if !ok {
 					return
 				}
 				wp.logsProducer.Publish(value)
-			case value, closed := <-wp.cmd.Stderr:
-				if !closed {
+			case value, ok := <-wp.cmd.Stderr:
+				if !ok {
 					return
 				}
 				wp.logsProducer.Publish(value)

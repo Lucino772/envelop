@@ -10,6 +10,7 @@ import (
 	"sync"
 	"syscall"
 
+	"github.com/Lucino772/envelop/internal/utils"
 	"github.com/Lucino772/envelop/pkg/pubsub"
 	"github.com/go-cmd/cmd"
 	"golang.org/x/sync/errgroup"
@@ -23,6 +24,7 @@ type Wrapper struct {
 	stdinWriter    io.WriteCloser
 	eventsProducer pubsub.Producer[Event]
 	states         map[string]WrapperState
+	idGenerator    func() (string, error)
 }
 
 type defaultGrpcWrappedStream struct {
@@ -35,6 +37,10 @@ func (w *defaultGrpcWrappedStream) Context() context.Context {
 }
 
 func NewWrapper(program string, args []string, opts ...WrapperOptFunc) (*Wrapper, error) {
+	idGenerator, err := utils.NewNanoIDGenerator()
+	if err != nil {
+		return nil, err
+	}
 	stdinReader, stdinWriter, err := os.Pipe()
 	if err != nil {
 		return nil, err
@@ -57,6 +63,7 @@ func NewWrapper(program string, args []string, opts ...WrapperOptFunc) (*Wrapper
 		stdinReader: stdinReader,
 		stdinWriter: stdinWriter,
 		states:      make(map[string]WrapperState),
+		idGenerator: idGenerator,
 	}
 	wrapper.eventsProducer = pubsub.NewProducer(5, wrapper.processEvent)
 	wrapper.setState(&ProcessStatusState{
@@ -108,6 +115,11 @@ func (wp *Wrapper) Run(parent context.Context) error {
 }
 
 func (wp *Wrapper) processEvent(event Event) (Event, bool) {
+	id, err := wp.idGenerator()
+	if err == nil {
+		event.Id = id
+	}
+
 	if stateEvent, ok := event.Data.(StateUpdateEvent); ok {
 		return event, wp.setState(stateEvent.Data)
 	}

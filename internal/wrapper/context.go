@@ -77,7 +77,6 @@ func (wp *Wrapper) SubscribeEvents() pubsub.Subscriber[Event] {
 
 func (wp *Wrapper) PublishEvent(event WrapperEvent) {
 	wp.eventsProducer.Emit(Event{
-		Id:        "", // TODO: Get Unique ID
 		Timestamp: time.Now().Unix(),
 		Name:      event.GetEventName(),
 		Data:      event,

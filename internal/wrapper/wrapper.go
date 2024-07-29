@@ -21,9 +21,8 @@ type Wrapper struct {
 	cmd            *cmd.Cmd
 	stdinReader    io.Reader
 	stdinWriter    io.WriteCloser
-	logsProducer   pubsub.Publisher[string]
-	eventsProducer pubsub.Publisher[Event]
-	stateManager   *StatePublisher
+	eventsProducer pubsub.Producer[Event]
+	states         map[string]WrapperState
 }
 
 type defaultGrpcWrappedStream struct {
@@ -53,14 +52,21 @@ func NewWrapper(program string, args []string, opts ...WrapperOptFunc) (*Wrapper
 	command.Env = slices.Concat(os.Environ(), options.env)
 
 	wrapper := &Wrapper{
-		options:        options,
-		cmd:            command,
-		stdinReader:    stdinReader,
-		stdinWriter:    stdinWriter,
-		logsProducer:   pubsub.NewPublisher[string](5, nil),
-		eventsProducer: pubsub.NewPublisher[Event](5, nil),
-		stateManager:   NewStatePublisher(5),
+		options:     options,
+		cmd:         command,
+		stdinReader: stdinReader,
+		stdinWriter: stdinWriter,
+		states:      make(map[string]WrapperState),
 	}
+	wrapper.eventsProducer = pubsub.NewProducer(5, wrapper.processEvent)
+	wrapper.setState(&ProcessStatusState{
+		Description: "Unknown",
+	})
+	wrapper.setState(&PlayerState{
+		Count:   0,
+		Max:     0,
+		Players: []string{},
+	})
 	return wrapper, nil
 }
 
@@ -71,8 +77,6 @@ func (wp *Wrapper) Run(parent context.Context) error {
 	wp.options.tasks = append(
 		wp.options.tasks,
 		wp.eventsProducer.Run,
-		wp.stateManager.Run,
-		wp.logsProducer.Run,
 	)
 
 	var (
@@ -103,6 +107,27 @@ func (wp *Wrapper) Run(parent context.Context) error {
 	return err
 }
 
+func (wp *Wrapper) processEvent(event Event) (Event, bool) {
+	if stateEvent, ok := event.Data.(StateUpdateEvent); ok {
+		return event, wp.setState(stateEvent.Data)
+	}
+	return event, true
+}
+
+func (wp *Wrapper) setState(state WrapperState) bool {
+	currentState, ok := wp.states[state.GetStateName()]
+
+	var updated bool = false
+	if !ok {
+		wp.states[state.GetStateName()] = state
+		updated = true
+	} else if !currentState.Equals(state) {
+		wp.states[state.GetStateName()] = state
+		updated = true
+	}
+	return updated
+}
+
 func (wp *Wrapper) runProcess(ctx context.Context) error {
 	defer wp.stdinWriter.Close()
 
@@ -120,12 +145,16 @@ func (wp *Wrapper) runProcess(ctx context.Context) error {
 				if !ok {
 					return
 				}
-				wp.logsProducer.Publish(value)
+				wp.PublishEvent(ProcessLogEvent{
+					Value: value,
+				})
 			case value, ok := <-wp.cmd.Stderr:
 				if !ok {
 					return
 				}
-				wp.logsProducer.Publish(value)
+				wp.PublishEvent(ProcessLogEvent{
+					Value: value,
+				})
 			case <-ctx.Done():
 				return
 			}

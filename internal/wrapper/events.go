@@ -16,8 +16,8 @@ func (ev ProcessLogEvent) GetEventName() string {
 }
 
 type StateUpdateEvent struct {
-	Name string `json:"name"`
-	Data any    `json:"state"`
+	Name string       `json:"name"`
+	Data WrapperState `json:"state"`
 }
 
 func (ev StateUpdateEvent) GetEventName() string {

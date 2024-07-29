@@ -39,7 +39,7 @@ func (service *coreProcessService) StreamStatus(_ *emptypb.Empty, stream pb.Proc
 	}
 
 	sub := wp.SubscribeStates()
-	defer sub.Unsubscribe()
+	defer sub.Close()
 
 	for state := range sub.Receive() {
 		if processState, ok := state.(*wrapper.ProcessStatusState); ok {
@@ -71,7 +71,7 @@ func (service *coreProcessService) StreamLogs(_ *emptypb.Empty, stream pb.Proces
 		return err
 	}
 	sub := wp.SubscribeLogs()
-	defer sub.Unsubscribe()
+	defer sub.Close()
 
 	for log := range sub.Receive() {
 		if err := stream.Send(&pb.Log{Value: log}); err != nil {

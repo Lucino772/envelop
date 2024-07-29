@@ -46,7 +46,7 @@ func (service *corePlayersService) StreamPlayers(_ *emptypb.Empty, stream pb.Pla
 	}
 
 	sub := wp.SubscribeStates()
-	defer sub.Unsubscribe()
+	defer sub.Close()
 
 	for state := range sub.Receive() {
 		if playerState, ok := state.(*wrapper.PlayerState); ok {

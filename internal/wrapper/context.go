@@ -5,6 +5,7 @@ import (
 	"errors"
 	"fmt"
 	"os"
+	"reflect"
 	"time"
 
 	"github.com/Lucino772/envelop/pkg/pubsub"
@@ -60,15 +61,22 @@ func (wp *Wrapper) SendSignal(signal os.Signal) error {
 }
 
 func (wp *Wrapper) SubscribeLogs() pubsub.Subscriber[string] {
-	return wp.logsProducer.Subscribe()
+	return pubsub.NewSubscriber(wp.eventsProducer, func(e Event) (string, bool) {
+		if event, ok := e.Data.(ProcessLogEvent); ok {
+			return event.Value, true
+		}
+		return "", false
+	})
 }
 
 func (wp *Wrapper) SubscribeEvents() pubsub.Subscriber[Event] {
-	return wp.eventsProducer.Subscribe()
+	return pubsub.NewSubscriber(wp.eventsProducer, func(e Event) (Event, bool) {
+		return e, true
+	})
 }
 
 func (wp *Wrapper) PublishEvent(event WrapperEvent) {
-	wp.eventsProducer.Publish(Event{
+	wp.eventsProducer.Emit(Event{
 		Id:        "", // TODO: Get Unique ID
 		Timestamp: time.Now().Unix(),
 		Name:      event.GetEventName(),
@@ -77,13 +85,35 @@ func (wp *Wrapper) PublishEvent(event WrapperEvent) {
 }
 
 func (wp *Wrapper) ReadState(state WrapperState) bool {
-	return wp.stateManager.Read(state)
+	if state == nil {
+		return false
+	}
+
+	value, ok := wp.states[state.GetStateName()]
+	if !ok {
+		return false
+	}
+
+	valuePtr := reflect.ValueOf(value)
+	if valuePtr.Kind() != reflect.Ptr {
+		return false
+	}
+	reflect.ValueOf(state).Elem().Set(valuePtr.Elem())
+	return true
 }
 
 func (wp *Wrapper) SubscribeStates() pubsub.Subscriber[WrapperState] {
-	return wp.stateManager.Subscribe()
+	return pubsub.NewSubscriber(wp.eventsProducer, func(e Event) (WrapperState, bool) {
+		if event, ok := e.Data.(StateUpdateEvent); ok {
+			return event.Data, true
+		}
+		return nil, false
+	})
 }
 
 func (wp *Wrapper) PublishState(state WrapperState) {
-	wp.stateManager.Publish(state)
+	wp.PublishEvent(StateUpdateEvent{
+		Name: state.GetStateName(),
+		Data: state,
+	})
 }

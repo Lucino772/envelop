@@ -21,7 +21,7 @@ func (task *checkMinecraftStatusTask) Run(ctx context.Context) error {
 	}
 
 	sub := wp.SubscribeLogs()
-	defer sub.Unsubscribe()
+	defer sub.Close()
 	messages := sub.Receive()
 
 	for {

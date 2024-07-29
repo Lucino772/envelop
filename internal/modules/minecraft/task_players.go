@@ -67,7 +67,7 @@ func (task *fetchMinecraftPlayersTask) Run(ctx context.Context) error {
 
 func (task *fetchMinecraftPlayersTask) waitQueryReady(ctx context.Context, wp wrapper.WrapperContext) bool {
 	sub := wp.SubscribeLogs()
-	defer sub.Unsubscribe()
+	defer sub.Close()
 	messages := sub.Receive()
 
 	// Wait for server to be ready

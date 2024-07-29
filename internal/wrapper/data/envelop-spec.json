@@ -24,6 +24,12 @@
             },
             "required": ["command", "graceful"]
         },
+        "hooks": {
+            "type": "array",
+            "items": {
+                "$ref": "#/definitions/hook_config"
+            }
+        },
         "modules": {
             "type": "array",
             "items": {
@@ -43,6 +49,17 @@
                 }
             },
             "required": ["uses"]
+        },
+        "hook_config": {
+            "type": "object",
+            "properties": {
+                "type": {  "type": "string" },
+                "options": {
+                    "type": "object",
+                    "default": {}
+                }
+            },
+            "required": ["type"]
         }
     }
 }

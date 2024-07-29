@@ -1,11 +1,15 @@
 package wrapper
 
 import (
+	"bytes"
 	"context"
+	"encoding/json"
 	"log"
+	"net/http"
 	"os"
 	"time"
 
+	"golang.org/x/sync/errgroup"
 	"google.golang.org/grpc"
 )
 
@@ -108,5 +112,70 @@ func WithGracefulStopCommand(command string) WrapperOptFunc {
 func WithModule(module WrapperModule) WrapperOptFunc {
 	return func(options *wrapperOptions) {
 		module.Register(options)
+	}
+}
+
+func WithHooks(hooks []HookConfig) WrapperOptFunc {
+	return func(options *wrapperOptions) {
+		senders := make([]func(context.Context, []byte) error, 0)
+		for _, hookConf := range hooks {
+			if hookConf.Type == "http" {
+				if sender := getWebhookSender(hookConf.Options); sender != nil {
+					senders = append(senders, sender)
+				}
+			}
+		}
+
+		options.AddTask(func(ctx context.Context) error {
+			wp, err := FromContext(ctx)
+			if err != nil {
+				return err
+			}
+
+			sub := wp.SubscribeEvents()
+			defer sub.Close()
+
+			for event := range sub.Receive() {
+				data, err := json.Marshal(event)
+				if err == nil {
+					wg, _ := errgroup.WithContext(ctx)
+					for _, sender := range senders {
+						sender := sender
+						wg.Go(func() error {
+							return sender(ctx, data)
+						})
+					}
+					_ = wg.Wait()
+				}
+			}
+			return nil
+		})
+	}
+}
+
+func getWebhookSender(options map[string]any) func(context.Context, []byte) error {
+	url, ok := options["url"]
+	if !ok {
+		return nil
+	}
+
+	return func(parent context.Context, data []byte) error {
+		ctx, cancel := context.WithTimeout(parent, 10*time.Second)
+		defer cancel()
+
+		req, err := http.NewRequestWithContext(ctx, "POST", url.(string), bytes.NewBuffer(data))
+		if err != nil {
+			return err
+		}
+		req.Header.Set("Content-Type", "application/json")
+
+		resp, err := http.DefaultClient.Do(req)
+		if err != nil {
+			return err
+		}
+		defer resp.Body.Close()
+
+		// TODO: Do we except a response ? If so, what's the shape ?
+		return nil
 	}
 }

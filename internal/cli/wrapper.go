@@ -47,6 +47,7 @@ func runWrapper(opts *wrapperOptions) (err error) {
 		log.Println("Failed to load config")
 		return err
 	}
+
 	command, err := shlex.Split(conf.Process.Command)
 	if err != nil {
 		log.Println("Failed to parse command")
@@ -58,6 +59,7 @@ func runWrapper(opts *wrapperOptions) (err error) {
 		options,
 		wrapper.WithWorkingDirectory(opts.workingDir),
 		wrapper.WithGracefulTimeout(time.Duration(conf.Process.Graceful.Timeout)*time.Second),
+		wrapper.WithHooks(conf.Hooks),
 		wrapper.WithForwardLogToStdout(),
 	)
 	if conf.Process.Graceful.Type == "cmd" {

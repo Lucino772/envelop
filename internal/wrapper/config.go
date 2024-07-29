@@ -18,6 +18,7 @@ var configSchema string
 
 type Config struct {
 	Process Process        `yaml:"process,omitempty"`
+	Hooks   []HookConfig   `yaml:"hooks,omitempty"`
 	Modules []ModuleConfig `yaml:"modules,omitempty"`
 }
 
@@ -29,6 +30,11 @@ type Process struct {
 		Timeout int                    `yaml:"timeout,omitempty"`
 		Options map[string]interface{} `yaml:"options,omitempty"`
 	} `yaml:"graceful,omitempty"`
+}
+
+type HookConfig struct {
+	Type    string         `yaml:"type,omitempty"`
+	Options map[string]any `yaml:"options,omitempty"`
 }
 
 type ModuleConfig struct {

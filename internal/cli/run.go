@@ -35,12 +35,13 @@ func runCommand() *cobra.Command {
 				if err != nil {
 					return err
 				}
-				absDirectory, err := filepath.Abs(directory)
-				if err != nil {
-					return err
-				}
-				options.Directory = absDirectory
+				options.Directory = directory
 			}
+			absDirectory, err := filepath.Abs(options.Directory)
+			if err != nil {
+				return err
+			}
+			options.Directory = absDirectory
 			return nil
 		},
 		RunE: func(cmd *cobra.Command, args []string) error {

@@ -17,47 +17,62 @@ import (
 )
 
 type wrapperOptions struct {
-	workingDir string
+	Directory string
+	Config    string
 }
 
-func runWrapperCommand() *cobra.Command {
+func runCommand() *cobra.Command {
 	options := &wrapperOptions{}
 	cmd := &cobra.Command{
-		Use:   "serve",
+		Use:   "run [FLAGS] [DIRECTORY]",
 		Short: "Run the envelop wrapper",
-		RunE: func(cmd *cobra.Command, args []string) error {
-			return runWrapper(options)
+		Args:  cobra.MaximumNArgs(1),
+		PreRunE: func(cmd *cobra.Command, args []string) error {
+			if len(args) == 1 {
+				options.Directory = args[0]
+			} else {
+				directory, err := os.Getwd()
+				if err != nil {
+					return err
+				}
+				absDirectory, err := filepath.Abs(directory)
+				if err != nil {
+					return err
+				}
+				options.Directory = absDirectory
+			}
+			return nil
 		},
+		RunE: func(cmd *cobra.Command, args []string) error {
+			return runRun(options)
+		},
+		DisableFlagsInUseLine: true,
 	}
-	cmd.Flags().StringVarP(&options.workingDir, "working-dir", "c", "", "Working directory")
+	flags := cmd.Flags()
+	flags.SetInterspersed(false)
+	flags.StringVarP(&options.Config, "config", "", "", "Path to envelop config")
 	return cmd
 }
 
-func runWrapper(opts *wrapperOptions) (err error) {
-	if opts.workingDir == "" {
-		opts.workingDir, err = os.Getwd()
-		if err != nil {
-			log.Println("Failed to get working directory")
-			return err
-		}
+func runRun(opts *wrapperOptions) (err error) {
+	if opts.Config == "" {
+		opts.Config = filepath.Join(opts.Directory, "envelop.yaml")
 	}
 
-	conf, err := loadConfig(filepath.Join(opts.workingDir, "envelop.yaml"))
+	conf, err := loadConfig(opts.Config)
 	if err != nil {
-		log.Println("Failed to load config")
 		return err
 	}
 
 	command, err := shlex.Split(conf.Process.Command)
 	if err != nil {
-		log.Println("Failed to parse command")
 		return err
 	}
 
 	var options []wrapper.WrapperOptFunc
 	options = append(
 		options,
-		wrapper.WithWorkingDirectory(opts.workingDir),
+		wrapper.WithWorkingDirectory(opts.Directory),
 		wrapper.WithGracefulTimeout(time.Duration(conf.Process.Graceful.Timeout)*time.Second),
 		wrapper.WithHooks(conf.Hooks),
 		wrapper.WithForwardLogToStdout(),

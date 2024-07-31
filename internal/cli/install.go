@@ -2,7 +2,6 @@ package cli
 
 import (
 	"context"
-	"log"
 	"os"
 	"path/filepath"
 
@@ -11,39 +10,45 @@ import (
 )
 
 type installOptions struct {
-	gameId     string
-	workingDir string
+	Game      string
+	Directory string
 }
 
 func installCommand() *cobra.Command {
 	options := &installOptions{}
 	cmd := &cobra.Command{
-		Use:   "install",
+		Use:   "install GAME [DIRECTORY]",
 		Short: "Install game server",
+		Args: cobra.MatchAll(
+			cobra.MinimumNArgs(1),
+			cobra.MaximumNArgs(2),
+		),
+		PreRunE: func(cmd *cobra.Command, args []string) error {
+			options.Game = args[0]
+			if len(args) > 1 {
+				options.Directory = args[1]
+			} else {
+				directory, err := os.Getwd()
+				if err != nil {
+					return err
+				}
+				absDirectory, err := filepath.Abs(directory)
+				if err != nil {
+					return err
+				}
+				options.Directory = absDirectory
+			}
+			return nil
+		},
 		RunE: func(cmd *cobra.Command, args []string) error {
 			return runInstall(options)
 		},
+		DisableFlagsInUseLine: true,
 	}
-	cmd.Flags().StringVarP(&options.workingDir, "working-dir", "c", "", "Working directory")
-	cmd.Flags().StringVarP(&options.gameId, "game-id", "g", "", "Game Identifier")
-	cmd.MarkFlagRequired("game-id")
 	return cmd
 }
 
 func runInstall(opts *installOptions) (err error) {
-	if opts.workingDir == "" {
-		opts.workingDir, err = os.Getwd()
-		if err != nil {
-			log.Println("Failed to get working directory")
-			return err
-		}
-	}
-
-	opts.workingDir, err = filepath.Abs(opts.workingDir)
-	if err != nil {
-		return err
-	}
-
 	installer, err := install.NewInstaller()
 	if err != nil {
 		return err
@@ -53,13 +58,13 @@ func runInstall(opts *installOptions) (err error) {
 		return err
 	}
 
-	manifest, err := installer.GetManifest(opts.gameId)
+	manifest, err := installer.GetManifest(opts.Game)
 	if err != nil {
 		return err
 	}
 	return installer.Install(
 		context.Background(),
 		manifest,
-		opts.workingDir,
+		opts.Directory,
 	)
 }

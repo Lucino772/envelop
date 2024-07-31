@@ -11,9 +11,11 @@ func updateCommand() *cobra.Command {
 	cmd := &cobra.Command{
 		Use:   "update",
 		Short: "Update the install manifests",
+		Args:  cobra.NoArgs,
 		RunE: func(cmd *cobra.Command, args []string) error {
 			return runUpdate()
 		},
+		DisableFlagsInUseLine: true,
 	}
 	return cmd
 }

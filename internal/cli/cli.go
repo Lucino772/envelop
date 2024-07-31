@@ -7,7 +7,7 @@ func RootCommand() *cobra.Command {
 		Use: "envelop",
 	}
 	rootCmd.AddCommand(
-		runWrapperCommand(),
+		runCommand(),
 		installCommand(),
 		updateCommand(),
 	)

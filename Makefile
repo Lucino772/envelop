@@ -1,11 +1,11 @@
 
 .PHONY: protobufs
 protobufs:
-	@protoc --go_out=./pkg \
-			--go_opt=paths=source_relative \
-			--go-grpc_out=./pkg \
-			--go-grpc_opt=paths=source_relative \
-			./protobufs/*.proto
+	@protoc --go_out=. \
+			--go_opt=module=github.com/Lucino772/envelop \
+			--go-grpc_out=. \
+			--go-grpc_opt=module=github.com/Lucino772/envelop \
+			./resources/protobufs/*.proto
 
 
 .PHONY: tidy

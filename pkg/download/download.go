@@ -21,10 +21,11 @@ var (
 )
 
 type Downloader struct {
-	Src           string
-	Dst           string
-	Getters       map[string]Getter
-	Decompressors map[string]Decompressor
+	Src              string
+	Dst              string
+	Getters          map[string]Getter
+	Decompressors    map[string]Decompressor
+	PostDownloadHook func(string) error
 }
 
 func NewDownloader(src string, dst string) *Downloader {
@@ -117,6 +118,12 @@ func (d *Downloader) Download(ctx context.Context) error {
 	}
 	if decompressor != nil {
 		if err := decompressor.Decompress(ctx, dst, decompressorDst); err != nil {
+			return err
+		}
+		dst = decompressorDst
+	}
+	if d.PostDownloadHook != nil {
+		if err := d.PostDownloadHook(dst); err != nil {
 			return err
 		}
 	}

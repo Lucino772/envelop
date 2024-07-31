@@ -44,11 +44,22 @@ func runInstall(opts *installOptions) (err error) {
 		return err
 	}
 
-	manifest, err := install.GetManifest(opts.gameId)
+	installer, err := install.NewInstaller()
 	if err != nil {
-		log.Println(err)
 		return err
 	}
-	installer := install.NewInstaller()
-	return installer.Install(context.Background(), manifest, opts.workingDir)
+
+	if err := installer.CheckManifestsAvailable(); err != nil {
+		return err
+	}
+
+	manifest, err := installer.GetManifest(opts.gameId)
+	if err != nil {
+		return err
+	}
+	return installer.Install(
+		context.Background(),
+		manifest,
+		opts.workingDir,
+	)
 }

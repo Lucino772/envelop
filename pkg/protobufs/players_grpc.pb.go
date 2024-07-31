@@ -2,7 +2,7 @@
 // versions:
 // - protoc-gen-go-grpc v1.2.0
 // - protoc             v5.27.1
-// source: protobufs/players.proto
+// source: resources/protobufs/players.proto
 
 package protobufs
 
@@ -166,5 +166,5 @@ var Players_ServiceDesc = grpc.ServiceDesc{
 			ServerStreams: true,
 		},
 	},
-	Metadata: "protobufs/players.proto",
+	Metadata: "resources/protobufs/players.proto",
 }

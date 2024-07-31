@@ -2,7 +2,7 @@
 // versions:
 // - protoc-gen-go-grpc v1.2.0
 // - protoc             v5.27.1
-// source: protobufs/rcon.proto
+// source: resources/protobufs/rcon.proto
 
 package protobufs
 
@@ -101,5 +101,5 @@ var Rcon_ServiceDesc = grpc.ServiceDesc{
 		},
 	},
 	Streams:  []grpc.StreamDesc{},
-	Metadata: "protobufs/rcon.proto",
+	Metadata: "resources/protobufs/rcon.proto",
 }

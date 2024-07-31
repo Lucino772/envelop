@@ -9,6 +9,7 @@ func RootCommand() *cobra.Command {
 	rootCmd.AddCommand(
 		runWrapperCommand(),
 		installCommand(),
+		updateCommand(),
 	)
 	return rootCmd
 }

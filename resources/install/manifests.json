@@ -6,7 +6,7 @@
                 "url": "https://piston-data.mojang.com/v1/objects/1b557e7b033b583cd9f66746b7a9ab1ec1673ced/server.jar?checksum=sha1:1b557e7b033b583cd9f66746b7a9ab1ec1673ced",
                 "destination": "server-1.16.5.jar",
                 "exports": {
-                    "jar":"{{ .Destination }}"
+                    "jar": "{{ .Destination }}"
                 }
             },
             {
@@ -14,7 +14,7 @@
                 "url": "https://github.com/adoptium/temurin8-binaries/releases/download/jdk8u412-b08/OpenJDK8U-jre_x64_linux_hotspot_8u412b08.tar.gz?archive=tar:gz&checksum=sha256:a8d994332a2ff15d48bf04405c3b2f6bd331a928dd96639b15e62891f7172363",
                 "destination": ".java/",
                 "exports": {
-                    "java":"{{ .Destination }}/jdk8u412-b08-jre/bin/java"
+                    "java": "{{ .Destination }}/jdk8u412-b08-jre/bin/java"
                 }
             },
             {
@@ -28,6 +28,6 @@
                 "destination": "server.properties"
             }
         ],
-        "config": "minecraft-vanilla.yaml"
+        "config": "https://raw.githubusercontent.com/Lucino772/envelop/main/resources/install/configs/minecraft-vanilla.yaml"
     }
 }

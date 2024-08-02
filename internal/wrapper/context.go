@@ -15,10 +15,6 @@ var ErrWrapperContextMissing = errors.New("wrapper context missing")
 
 type wrapperIncomingGrpcKey struct{}
 
-type WrapperEvent interface {
-	GetEventName() string
-}
-
 type WrapperState interface {
 	GetStateName() string
 	Equals(WrapperState) bool
@@ -29,7 +25,7 @@ type WrapperContext interface {
 	SendSignal(signal os.Signal) error
 	SubscribeLogs() pubsub.Subscriber[string]
 	SubscribeEvents() pubsub.Subscriber[Event]
-	PublishEvent(event WrapperEvent)
+	PublishEvent(event any)
 	ReadState(state WrapperState) bool
 	SubscribeStates() pubsub.Subscriber[WrapperState]
 	PublishState(state WrapperState)
@@ -75,10 +71,10 @@ func (wp *Wrapper) SubscribeEvents() pubsub.Subscriber[Event] {
 	})
 }
 
-func (wp *Wrapper) PublishEvent(event WrapperEvent) {
+func (wp *Wrapper) PublishEvent(event any) {
 	wp.eventsProducer.Emit(Event{
 		Timestamp: time.Now().Unix(),
-		Name:      event.GetEventName(),
+		Name:      GetEventName(event),
 		Data:      event,
 	})
 }

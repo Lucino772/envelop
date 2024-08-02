@@ -1,5 +1,16 @@
 package wrapper
 
+func GetEventName(event any) string {
+	switch event.(type) {
+	case ProcessLogEvent:
+		return "/process/log"
+	case StateUpdateEvent:
+		return "/state/update"
+	default:
+		return "/unkown"
+	}
+}
+
 type Event struct {
 	Id        string `json:"id"`
 	Timestamp int64  `json:"timestamp"`
@@ -11,15 +22,7 @@ type ProcessLogEvent struct {
 	Value string `json:"value"`
 }
 
-func (ev ProcessLogEvent) GetEventName() string {
-	return "/process/log"
-}
-
 type StateUpdateEvent struct {
 	Name string       `json:"name"`
 	Data WrapperState `json:"state"`
-}
-
-func (ev StateUpdateEvent) GetEventName() string {
-	return "/state/update"
 }

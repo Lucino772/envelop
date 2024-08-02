@@ -15,20 +15,15 @@ var ErrWrapperContextMissing = errors.New("wrapper context missing")
 
 type wrapperIncomingGrpcKey struct{}
 
-type WrapperState interface {
-	GetStateName() string
-	Equals(WrapperState) bool
-}
-
 type WrapperContext interface {
 	WriteCommand(command string) error
 	SendSignal(signal os.Signal) error
 	SubscribeLogs() pubsub.Subscriber[string]
 	SubscribeEvents() pubsub.Subscriber[Event]
 	PublishEvent(event any)
-	ReadState(state WrapperState) bool
-	SubscribeStates() pubsub.Subscriber[WrapperState]
-	PublishState(state WrapperState)
+	ReadState(state any) bool
+	SubscribeStates() pubsub.Subscriber[any]
+	PublishState(state any)
 }
 
 func FromContext(ctx context.Context) (WrapperContext, error) {
@@ -79,12 +74,12 @@ func (wp *Wrapper) PublishEvent(event any) {
 	})
 }
 
-func (wp *Wrapper) ReadState(state WrapperState) bool {
+func (wp *Wrapper) ReadState(state any) bool {
 	if state == nil {
 		return false
 	}
 
-	value, ok := wp.states[state.GetStateName()]
+	value, ok := wp.states[GetStateName(state)]
 	if !ok {
 		return false
 	}
@@ -97,8 +92,8 @@ func (wp *Wrapper) ReadState(state WrapperState) bool {
 	return true
 }
 
-func (wp *Wrapper) SubscribeStates() pubsub.Subscriber[WrapperState] {
-	return pubsub.NewSubscriber(wp.eventsProducer, func(e Event) (WrapperState, bool) {
+func (wp *Wrapper) SubscribeStates() pubsub.Subscriber[any] {
+	return pubsub.NewSubscriber(wp.eventsProducer, func(e Event) (any, bool) {
 		if event, ok := e.Data.(StateUpdateEvent); ok {
 			return event.Data, true
 		}
@@ -106,9 +101,9 @@ func (wp *Wrapper) SubscribeStates() pubsub.Subscriber[WrapperState] {
 	})
 }
 
-func (wp *Wrapper) PublishState(state WrapperState) {
+func (wp *Wrapper) PublishState(state any) {
 	wp.PublishEvent(StateUpdateEvent{
-		Name: state.GetStateName(),
+		Name: GetStateName(state),
 		Data: state,
 	})
 }

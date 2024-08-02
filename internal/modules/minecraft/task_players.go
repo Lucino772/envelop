@@ -52,7 +52,7 @@ func (task *fetchMinecraftPlayersTask) Run(ctx context.Context) error {
 			conn.Close()
 		case stats := <-result:
 			if stats != nil {
-				wp.PublishState(&wrapper.PlayerState{
+				wp.PublishState(wrapper.PlayerState{
 					Count:   int(stats.NumPlayers),
 					Max:     int(stats.MaxPlayers),
 					Players: stats.Players,

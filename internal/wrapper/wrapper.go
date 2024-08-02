@@ -6,6 +6,7 @@ import (
 	"net"
 	"os"
 	"os/signal"
+	"reflect"
 	"slices"
 	"sync"
 	"syscall"
@@ -23,7 +24,7 @@ type Wrapper struct {
 	stdinReader    io.Reader
 	stdinWriter    io.WriteCloser
 	eventsProducer pubsub.Producer[Event]
-	states         map[string]WrapperState
+	states         map[string]any
 	idGenerator    func() (string, error)
 }
 
@@ -62,7 +63,7 @@ func NewWrapper(program string, args []string, opts ...WrapperOptFunc) (*Wrapper
 		cmd:         command,
 		stdinReader: stdinReader,
 		stdinWriter: stdinWriter,
-		states:      make(map[string]WrapperState),
+		states:      make(map[string]any),
 		idGenerator: idGenerator,
 	}
 	wrapper.eventsProducer = pubsub.NewProducer(5, wrapper.processEvent)
@@ -126,15 +127,16 @@ func (wp *Wrapper) processEvent(event Event) (Event, bool) {
 	return event, true
 }
 
-func (wp *Wrapper) setState(state WrapperState) bool {
-	currentState, ok := wp.states[state.GetStateName()]
+func (wp *Wrapper) setState(state any) bool {
+	name := GetStateName(state)
+	current, ok := wp.states[name]
 
 	var updated bool = false
 	if !ok {
-		wp.states[state.GetStateName()] = state
+		wp.states[name] = state
 		updated = true
-	} else if !currentState.Equals(state) {
-		wp.states[state.GetStateName()] = state
+	} else if !reflect.DeepEqual(current, state) {
+		wp.states[name] = state
 		updated = true
 	}
 	return updated

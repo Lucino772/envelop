@@ -2,9 +2,9 @@ package wrapper
 
 func GetEventName(event any) string {
 	switch event.(type) {
-	case ProcessLogEvent:
+	case ProcessLogEvent, *ProcessLogEvent:
 		return "/process/log"
-	case StateUpdateEvent:
+	case StateUpdateEvent, *StateUpdateEvent:
 		return "/state/update"
 	default:
 		return "/unkown"
@@ -23,6 +23,6 @@ type ProcessLogEvent struct {
 }
 
 type StateUpdateEvent struct {
-	Name string       `json:"name"`
-	Data WrapperState `json:"state"`
+	Name string `json:"name"`
+	Data any    `json:"state"`
 }

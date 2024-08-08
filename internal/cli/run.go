@@ -6,7 +6,6 @@ import (
 	"log"
 	"os"
 	"path/filepath"
-	"syscall"
 	"time"
 
 	"github.com/Lucino772/envelop/internal/modules/core"
@@ -75,19 +74,24 @@ func runRun(opts *wrapperOptions) (err error) {
 		options,
 		wrapper.WithWorkingDirectory(opts.Directory),
 		wrapper.WithGracefulTimeout(time.Duration(conf.Process.Graceful.Timeout)*time.Second),
-		wrapper.WithHooks(conf.Hooks),
 		wrapper.WithForwardLogToStdout(),
 	)
-	if conf.Process.Graceful.Type == "cmd" {
+	stopper := wrapper.NewGracefulStopper(conf.Process.Graceful.Type, conf.Process.Graceful.Options)
+	if stopper != nil {
 		options = append(
 			options,
-			wrapper.WithGracefulStopCommand(conf.Process.Graceful.Options["cmd"].(string)),
+			wrapper.WithGracefulStopper(stopper),
 		)
-	} else if conf.Process.Graceful.Type == "signal" {
-		options = append(
-			options,
-			wrapper.WithGracefulStopSignal(conf.Process.Graceful.Options["signal"].(syscall.Signal)),
-		)
+	}
+
+	for _, hook := range conf.Hooks {
+		h := wrapper.NewHook(hook.Type, hook.Options)
+		if h != nil {
+			options = append(
+				options,
+				wrapper.WithHook(h),
+			)
+		}
 	}
 
 	modules := map[string]wrapper.WrapperModule{

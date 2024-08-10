@@ -6,11 +6,9 @@ import (
 	"log"
 	"os"
 	"path/filepath"
-	"time"
 
-	"github.com/Lucino772/envelop/internal/modules"
 	"github.com/Lucino772/envelop/internal/wrapper"
-	"github.com/google/shlex"
+	wrapperconf "github.com/Lucino772/envelop/internal/wrapper/conf"
 	"github.com/spf13/cobra"
 )
 
@@ -63,46 +61,13 @@ func runRun(opts *wrapperOptions) (err error) {
 		return err
 	}
 
-	command, err := shlex.Split(conf.Process.Command)
-	if err != nil {
-		return err
-	}
-
-	var options []wrapper.OptFunc
-	options = append(
-		options,
+	conf.Options = append(
+		conf.Options,
 		wrapper.WithWorkingDirectory(opts.Directory),
-		wrapper.WithGracefulTimeout(time.Duration(conf.Process.Graceful.Timeout)*time.Second),
 		wrapper.WithForwardLogToStdout(),
 	)
-	stopper := wrapper.NewGracefulStopper(conf.Process.Graceful.Type, conf.Process.Graceful.Options)
-	if stopper != nil {
-		options = append(
-			options,
-			wrapper.WithGracefulStopper(stopper),
-		)
-	}
 
-	for _, hook := range conf.Hooks {
-		h := wrapper.NewHook(hook.Type, hook.Options)
-		if h != nil {
-			options = append(
-				options,
-				wrapper.WithHook(h),
-			)
-		}
-	}
-
-	for _, mod := range conf.Modules {
-		module := modules.NewModule(mod.Name, mod.Options)
-		if module != nil {
-			options = append(options, wrapper.WithModule(module))
-		} else {
-			log.Printf("Failed to load module '%s'\n", mod.Name)
-		}
-	}
-
-	run, err := wrapper.New(command[0], command[1:], options...)
+	run, err := wrapper.New(conf.Program, conf.Args, conf.Options...)
 	if err != nil {
 		log.Println("Error while creating wrapper")
 		return err
@@ -114,12 +79,12 @@ func runRun(opts *wrapperOptions) (err error) {
 	return err
 }
 
-func loadConfig(configPath string) (*wrapper.Config, error) {
+func loadConfig(configPath string) (*wrapperconf.Config, error) {
 	data, err := os.ReadFile(configPath)
 	if err != nil {
 		return nil, err
 	}
-	conf, err := wrapper.LoadConfig(data)
+	conf, err := wrapperconf.Load(data)
 	if err != nil {
 		return nil, err
 	}

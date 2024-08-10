@@ -8,8 +8,7 @@ import (
 	"path/filepath"
 	"time"
 
-	"github.com/Lucino772/envelop/internal/modules/core"
-	"github.com/Lucino772/envelop/internal/modules/minecraft"
+	"github.com/Lucino772/envelop/internal/modules"
 	"github.com/Lucino772/envelop/internal/wrapper"
 	"github.com/google/shlex"
 	"github.com/spf13/cobra"
@@ -94,15 +93,12 @@ func runRun(opts *wrapperOptions) (err error) {
 		}
 	}
 
-	modules := map[string]wrapper.Module{
-		"envelop.core":      core.NewCoreModule().Register,
-		"envelop.minecraft": minecraft.NewMinecraftModule().Register,
-	}
 	for _, mod := range conf.Modules {
-		if module, ok := modules[mod.Uses]; ok {
+		module := modules.NewModule(mod.Name, mod.Options)
+		if module != nil {
 			options = append(options, wrapper.WithModule(module))
 		} else {
-			log.Printf("Failed to load module '%s'\n", mod.Uses)
+			log.Printf("Failed to load module '%s'\n", mod.Name)
 		}
 	}
 

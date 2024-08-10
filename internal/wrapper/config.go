@@ -38,8 +38,8 @@ type HookConfig struct {
 }
 
 type ModuleConfig struct {
-	Uses string                 `yaml:"uses,omitempty"`
-	With map[string]interface{} `yaml:"with,omitempty"`
+	Name    string                 `yaml:"uses,omitempty"`
+	Options map[string]interface{} `yaml:"with,omitempty"`
 }
 
 func LoadConfig(source []byte) (*Config, error) {

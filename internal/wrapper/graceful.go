@@ -4,17 +4,17 @@ import (
 	"syscall"
 )
 
-func NewGracefulStopper(name string, options map[string]any) WrapperStopper {
+func NewGracefulStopper(name string, options map[string]any) Stopper {
 	switch name {
 	case "cmd":
 		command := options["cmd"].(string)
-		return func(wp WrapperContext) error {
-			return wp.WriteCommand(command)
+		return func(w Wrapper) error {
+			return w.WriteStdin(command)
 		}
 	case "signal":
 		sig := options["signal"].(syscall.Signal)
-		return func(wp WrapperContext) error {
-			return wp.SendSignal(sig)
+		return func(w Wrapper) error {
+			return w.SendSignal(sig)
 		}
 	default:
 		return nil

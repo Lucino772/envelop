@@ -2,14 +2,16 @@ package wrapper
 
 import (
 	"context"
+	"errors"
+	"fmt"
 	"io"
 	"net"
 	"os"
 	"os/signal"
 	"reflect"
-	"slices"
 	"sync"
 	"syscall"
+	"time"
 
 	"github.com/Lucino772/envelop/internal/utils"
 	"github.com/Lucino772/envelop/pkg/pubsub"
@@ -18,26 +20,24 @@ import (
 	"google.golang.org/grpc"
 )
 
-type Wrapper struct {
-	options        wrapperOptions
-	cmd            *cmd.Cmd
-	stdinReader    io.Reader
-	stdinWriter    io.WriteCloser
-	eventsProducer pubsub.Producer[Event]
-	states         map[string]any
-	idGenerator    func() (string, error)
+var ErrWrapperContextMissing = errors.New("wrapper context missing")
+
+type OptFunc func(*wrapper)
+
+type wrapper struct {
+	cmd             *cmd.Cmd
+	stdinReader     io.Reader
+	stdinWriter     io.WriteCloser
+	gracefulTimeout time.Duration
+	gracefulStopper Stopper
+	services        []Service
+	tasks           []Task
+	eventsProducer  pubsub.Producer[Event]
+	states          map[string]any
+	idGenerator     func() (string, error)
 }
 
-type defaultGrpcWrappedStream struct {
-	grpc.ServerStream
-	ctx context.Context
-}
-
-func (w *defaultGrpcWrappedStream) Context() context.Context {
-	return w.ctx
-}
-
-func NewWrapper(program string, args []string, opts ...WrapperOptFunc) (*Wrapper, error) {
+func New(program string, args []string, opts ...OptFunc) (func(context.Context) error, error) {
 	idGenerator, err := utils.NewNanoIDGenerator()
 	if err != nil {
 		return nil, err
@@ -46,45 +46,48 @@ func NewWrapper(program string, args []string, opts ...WrapperOptFunc) (*Wrapper
 	if err != nil {
 		return nil, err
 	}
-	options := defaultOptions()
-	for _, opt := range opts {
-		opt(&options)
-	}
-
 	command := cmd.NewCmdOptions(cmd.Options{
 		Buffered:  false,
 		Streaming: true,
 	}, program, args...)
-	command.Dir = options.dir
-	command.Env = slices.Concat(os.Environ(), options.env)
+	command.Env = append(command.Env, os.Environ()...)
 
-	wrapper := &Wrapper{
-		options:     options,
-		cmd:         command,
-		stdinReader: stdinReader,
-		stdinWriter: stdinWriter,
-		states:      make(map[string]any),
-		idGenerator: idGenerator,
+	wp := &wrapper{
+		gracefulTimeout: 30 * time.Second,
+		services:        make([]Service, 0),
+		tasks:           make([]Task, 0),
+		cmd:             command,
+		stdinReader:     stdinReader,
+		stdinWriter:     stdinWriter,
+		idGenerator:     idGenerator,
+		states:          make(map[string]any),
 	}
-	wrapper.eventsProducer = pubsub.NewProducer(5, wrapper.processEvent)
-	wrapper.setState(&ProcessStatusState{
+	wp.eventsProducer = pubsub.NewProducer(5, wp.processEvent)
+	wp.setState(&ProcessStatusState{
 		Description: "Unknown",
 	})
-	wrapper.setState(&PlayerState{
+	wp.setState(&PlayerState{
 		Count:   0,
 		Max:     0,
 		Players: []string{},
 	})
-	return wrapper, nil
+
+	for _, opt := range opts {
+		opt(wp)
+	}
+
+	return wp.Run, nil
 }
 
-func (wp *Wrapper) Run(parent context.Context) error {
-	ctx, cancel := context.WithCancel(wp.withContext(parent))
+func (wp *wrapper) Run(parent context.Context) error {
+	ctx, cancel := context.WithCancel(parent)
 	defer cancel()
 
-	wp.options.tasks = append(
-		wp.options.tasks,
-		wp.eventsProducer.Run,
+	wp.tasks = append(
+		wp.tasks,
+		func(ctx context.Context, _ Wrapper) error {
+			return wp.eventsProducer.Run(ctx)
+		},
 	)
 
 	var (
@@ -94,10 +97,10 @@ func (wp *Wrapper) Run(parent context.Context) error {
 	mainErrGroup.SetLimit(2)
 	taskErrGroup.SetLimit(-1)
 
-	for _, task := range wp.options.tasks {
+	for _, task := range wp.tasks {
 		task := task
 		taskErrGroup.Go(func() error {
-			return task(mainCtx)
+			return task(mainCtx, wp)
 		})
 	}
 
@@ -115,34 +118,104 @@ func (wp *Wrapper) Run(parent context.Context) error {
 	return err
 }
 
-func (wp *Wrapper) processEvent(event Event) (Event, bool) {
-	id, err := wp.idGenerator()
+func (wp *wrapper) WriteStdin(command string) error {
+	_, err := wp.stdinWriter.Write([]byte(fmt.Sprintf("%s\n", command)))
+	return err
+}
+
+func (wp *wrapper) SendSignal(signal os.Signal) error {
+	process, err := os.FindProcess(wp.cmd.Status().PID)
+	if err != nil {
+		return err
+	}
+	return process.Signal(signal)
+}
+
+func (wp *wrapper) SubscribeLogs() pubsub.Subscriber[string] {
+	return pubsub.NewSubscriber(wp.eventsProducer, func(e Event) (string, bool) {
+		if event, ok := e.Data.(ProcessLogEvent); ok {
+			return event.Value, true
+		}
+		return "", false
+	})
+}
+
+func (wp *wrapper) SubscribeEvents() pubsub.Subscriber[Event] {
+	return pubsub.NewSubscriber(wp.eventsProducer, func(e Event) (Event, bool) {
+		return e, true
+	})
+}
+
+func (wp *wrapper) EmitEvent(event any) {
+	wp.eventsProducer.Emit(Event{
+		Timestamp: time.Now().Unix(),
+		Name:      GetEventName(event),
+		Data:      event,
+	})
+}
+
+func (wp *wrapper) ReadState(state any) bool {
+	if state == nil {
+		return false
+	}
+
+	value, ok := wp.states[GetStateName(state)]
+	if !ok {
+		return false
+	}
+
+	valuePtr := reflect.ValueOf(value)
+	if valuePtr.Kind() != reflect.Ptr {
+		return false
+	}
+	reflect.ValueOf(state).Elem().Set(valuePtr.Elem())
+	return true
+}
+
+func (wp *wrapper) SubscribeStates() pubsub.Subscriber[any] {
+	return pubsub.NewSubscriber(wp.eventsProducer, func(e Event) (any, bool) {
+		if event, ok := e.Data.(StateUpdateEvent); ok {
+			return event.Data, true
+		}
+		return nil, false
+	})
+}
+
+func (wp *wrapper) UpdateState(state any) {
+	wp.EmitEvent(StateUpdateEvent{
+		Name: GetStateName(state),
+		Data: state,
+	})
+}
+
+func (w *wrapper) processEvent(event Event) (Event, bool) {
+	id, err := w.idGenerator()
 	if err == nil {
 		event.Id = id
 	}
 
 	if stateEvent, ok := event.Data.(StateUpdateEvent); ok {
-		return event, wp.setState(stateEvent.Data)
+		return event, w.setState(stateEvent.Data)
 	}
 	return event, true
 }
 
-func (wp *Wrapper) setState(state any) bool {
+func (w *wrapper) setState(state any) bool {
 	name := GetStateName(state)
-	current, ok := wp.states[name]
+	current, ok := w.states[name]
 
 	var updated bool = false
 	if !ok {
-		wp.states[name] = state
+		w.states[name] = state
 		updated = true
 	} else if !reflect.DeepEqual(current, state) {
-		wp.states[name] = state
+		w.states[name] = state
 		updated = true
 	}
 	return updated
 }
 
-func (wp *Wrapper) runProcess(ctx context.Context) error {
+func (wp *wrapper) runProcess(ctx context.Context) error {
 	defer wp.stdinWriter.Close()
 
 	signalChan := make(chan os.Signal, 1)
@@ -159,14 +232,14 @@ func (wp *Wrapper) runProcess(ctx context.Context) error {
 				if !ok {
 					return
 				}
-				wp.PublishEvent(ProcessLogEvent{
+				wp.EmitEvent(ProcessLogEvent{
 					Value: value,
 				})
 			case value, ok := <-wp.cmd.Stderr:
 				if !ok {
 					return
 				}
-				wp.PublishEvent(ProcessLogEvent{
+				wp.EmitEvent(ProcessLogEvent{
 					Value: value,
 				})
 			case <-ctx.Done():
@@ -191,11 +264,11 @@ func (wp *Wrapper) runProcess(ctx context.Context) error {
 	return err
 }
 
-func (wp *Wrapper) gracefulStop(statusChan <-chan cmd.Status) (bool, error) {
-	ctx, cancel := context.WithTimeout(context.Background(), wp.options.gracefulTimeout)
+func (wp *wrapper) gracefulStop(statusChan <-chan cmd.Status) (bool, error) {
+	ctx, cancel := context.WithTimeout(context.Background(), wp.gracefulTimeout)
 	defer cancel()
 
-	err := wp.options.gracefulStopper(wp)
+	err := wp.gracefulStopper(wp)
 	if err != nil {
 		return false, err
 	}
@@ -208,24 +281,13 @@ func (wp *Wrapper) gracefulStop(statusChan <-chan cmd.Status) (bool, error) {
 	}
 }
 
-func (wp *Wrapper) runGrpcServer(ctx context.Context) error {
+func (wp *wrapper) runGrpcServer(ctx context.Context) error {
 	lis, err := net.Listen("tcp", "0.0.0.0:8791")
 	if err != nil {
 		return err
 	}
-	grpcServer := grpc.NewServer(
-		grpc.UnaryInterceptor(
-			func(ctx context.Context, req any, info *grpc.UnaryServerInfo, handler grpc.UnaryHandler) (resp any, err error) {
-				return handler(wp.withContext(ctx), req)
-			},
-		),
-		grpc.StreamInterceptor(
-			func(srv any, ss grpc.ServerStream, info *grpc.StreamServerInfo, handler grpc.StreamHandler) error {
-				return handler(srv, &defaultGrpcWrappedStream{ss, wp.withContext(ss.Context())})
-			},
-		),
-	)
-	for _, service := range wp.options.services {
+	grpcServer := grpc.NewServer()
+	for _, service := range wp.services {
 		service.Register(grpcServer)
 	}
 

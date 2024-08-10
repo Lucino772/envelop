@@ -8,8 +8,10 @@ func NewCoreModule() *coreModule {
 	return &coreModule{}
 }
 
-func (mod *coreModule) Register(wrapper wrapper.WrapperRegistrar) {
-	wrapper.AddService(NewCoreSystemService())
-	wrapper.AddService(NewCoreProcessService())
-	wrapper.AddService(NewCorePlayersService())
+func (mod *coreModule) Register(w wrapper.Wrapper) []wrapper.OptFunc {
+	return []wrapper.OptFunc{
+		wrapper.WithService(NewCoreSystemService(w)),
+		wrapper.WithService(NewCoreProcessService(w)),
+		wrapper.WithService(NewCorePlayersService(w)),
+	}
 }

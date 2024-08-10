@@ -3,6 +3,7 @@ package minecraft
 import (
 	"context"
 
+	"github.com/Lucino772/envelop/internal/wrapper"
 	pb "github.com/Lucino772/envelop/pkg/protobufs"
 	"github.com/Lucino772/envelop/pkg/rcon"
 	"google.golang.org/grpc"
@@ -10,10 +11,11 @@ import (
 
 type minecraftRconService struct {
 	pb.UnimplementedRconServer
+	wrapper wrapper.Wrapper
 }
 
-func NewMinecraftRconService() *minecraftRconService {
-	return &minecraftRconService{}
+func NewMinecraftRconService(w wrapper.Wrapper) *minecraftRconService {
+	return &minecraftRconService{wrapper: w}
 }
 
 func (service *minecraftRconService) SendCommand(ctx context.Context, req *pb.RconCommand) (*pb.RconResponse, error) {

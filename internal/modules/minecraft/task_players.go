@@ -17,12 +17,7 @@ func NewFetchMinecraftPlayersTask() *fetchMinecraftPlayersTask {
 	return &fetchMinecraftPlayersTask{}
 }
 
-func (task *fetchMinecraftPlayersTask) Run(ctx context.Context) error {
-	wp, err := wrapper.FromContext(ctx)
-	if err != nil {
-		return err
-	}
-
+func (task *fetchMinecraftPlayersTask) Run(ctx context.Context, wp wrapper.Wrapper) error {
 	ready := task.waitQueryReady(ctx, wp)
 	if !ready {
 		return errors.New("query is not enabled")
@@ -52,7 +47,7 @@ func (task *fetchMinecraftPlayersTask) Run(ctx context.Context) error {
 			conn.Close()
 		case stats := <-result:
 			if stats != nil {
-				wp.PublishState(wrapper.PlayerState{
+				wp.UpdateState(wrapper.PlayerState{
 					Count:   int(stats.NumPlayers),
 					Max:     int(stats.MaxPlayers),
 					Players: stats.Players,
@@ -65,7 +60,7 @@ func (task *fetchMinecraftPlayersTask) Run(ctx context.Context) error {
 	}
 }
 
-func (task *fetchMinecraftPlayersTask) waitQueryReady(ctx context.Context, wp wrapper.WrapperContext) bool {
+func (task *fetchMinecraftPlayersTask) waitQueryReady(ctx context.Context, wp wrapper.Wrapper) bool {
 	sub := wp.SubscribeLogs()
 	defer sub.Close()
 	messages := sub.Receive()

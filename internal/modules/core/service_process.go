@@ -12,19 +12,16 @@ import (
 
 type coreProcessService struct {
 	pb.UnimplementedProcessServer
+	wrapper wrapper.Wrapper
 }
 
-func NewCoreProcessService() *coreProcessService {
-	return &coreProcessService{}
+func NewCoreProcessService(w wrapper.Wrapper) *coreProcessService {
+	return &coreProcessService{wrapper: w}
 }
 
 func (service *coreProcessService) GetStatus(ctx context.Context, _ *emptypb.Empty) (*pb.Status, error) {
-	wp, err := wrapper.FromContext(ctx)
-	if err != nil {
-		return nil, err
-	}
 	var state wrapper.ProcessStatusState
-	if ok := wp.ReadState(&state); !ok {
+	if ok := service.wrapper.ReadState(&state); !ok {
 		return nil, errors.New("failed to read process status state")
 	}
 	return &pb.Status{
@@ -33,12 +30,7 @@ func (service *coreProcessService) GetStatus(ctx context.Context, _ *emptypb.Emp
 }
 
 func (service *coreProcessService) StreamStatus(_ *emptypb.Empty, stream pb.Process_StreamStatusServer) error {
-	wp, err := wrapper.FromContext(stream.Context())
-	if err != nil {
-		return err
-	}
-
-	sub := wp.SubscribeStates()
+	sub := service.wrapper.SubscribeStates()
 	defer sub.Close()
 
 	for state := range sub.Receive() {
@@ -55,22 +47,14 @@ func (service *coreProcessService) StreamStatus(_ *emptypb.Empty, stream pb.Proc
 }
 
 func (service *coreProcessService) WriteCommand(ctx context.Context, request *pb.Command) (*emptypb.Empty, error) {
-	wp, err := wrapper.FromContext(ctx)
-	if err != nil {
-		return nil, err
-	}
-	if err := wp.WriteCommand(request.GetValue()); err != nil {
+	if err := service.wrapper.WriteStdin(request.GetValue()); err != nil {
 		return nil, err
 	}
 	return &emptypb.Empty{}, nil
 }
 
 func (service *coreProcessService) StreamLogs(_ *emptypb.Empty, stream pb.Process_StreamLogsServer) error {
-	wp, err := wrapper.FromContext(stream.Context())
-	if err != nil {
-		return err
-	}
-	sub := wp.SubscribeLogs()
+	sub := service.wrapper.SubscribeLogs()
 	defer sub.Close()
 
 	for log := range sub.Receive() {

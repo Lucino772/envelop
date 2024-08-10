@@ -8,8 +8,10 @@ func NewMinecraftModule() *minecraftModule {
 	return &minecraftModule{}
 }
 
-func (mod *minecraftModule) Register(wrapper wrapper.WrapperRegistrar) {
-	wrapper.AddService(NewMinecraftRconService())
-	wrapper.AddTask(NewCheckMinecraftStatusTask().Run)
-	wrapper.AddTask(NewFetchMinecraftPlayersTask().Run)
+func (mod *minecraftModule) Register(w wrapper.Wrapper) []wrapper.OptFunc {
+	return []wrapper.OptFunc{
+		wrapper.WithService(NewMinecraftRconService(w)),
+		wrapper.WithTask(NewCheckMinecraftStatusTask().Run),
+		wrapper.WithTask(NewFetchMinecraftPlayersTask().Run),
+	}
 }

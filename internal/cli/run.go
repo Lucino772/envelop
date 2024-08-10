@@ -69,7 +69,7 @@ func runRun(opts *wrapperOptions) (err error) {
 		return err
 	}
 
-	var options []wrapper.WrapperOptFunc
+	var options []wrapper.OptFunc
 	options = append(
 		options,
 		wrapper.WithWorkingDirectory(opts.Directory),
@@ -94,9 +94,9 @@ func runRun(opts *wrapperOptions) (err error) {
 		}
 	}
 
-	modules := map[string]wrapper.WrapperModule{
-		"envelop.core":      core.NewCoreModule(),
-		"envelop.minecraft": minecraft.NewMinecraftModule(),
+	modules := map[string]wrapper.Module{
+		"envelop.core":      core.NewCoreModule().Register,
+		"envelop.minecraft": minecraft.NewMinecraftModule().Register,
 	}
 	for _, mod := range conf.Modules {
 		if module, ok := modules[mod.Uses]; ok {
@@ -106,12 +106,12 @@ func runRun(opts *wrapperOptions) (err error) {
 		}
 	}
 
-	wp, err := wrapper.NewWrapper(command[0], command[1:], options...)
+	run, err := wrapper.New(command[0], command[1:], options...)
 	if err != nil {
 		log.Println("Error while creating wrapper")
 		return err
 	}
-	err = wp.Run(context.Background())
+	err = run(context.Background())
 	if errors.Is(err, context.Canceled) {
 		return nil
 	}

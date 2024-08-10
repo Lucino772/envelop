@@ -11,18 +11,15 @@ import (
 
 type coreSystemService struct {
 	pb.UnimplementedSystemServer
+	wrapper wrapper.Wrapper
 }
 
-func NewCoreSystemService() *coreSystemService {
-	return &coreSystemService{}
+func NewCoreSystemService(w wrapper.Wrapper) *coreSystemService {
+	return &coreSystemService{wrapper: w}
 }
 
 func (service *coreSystemService) StreamEvents(_ *emptypb.Empty, stream pb.System_StreamEventsServer) error {
-	wp, err := wrapper.FromContext(stream.Context())
-	if err != nil {
-		return err
-	}
-	sub := wp.SubscribeEvents()
+	sub := service.wrapper.SubscribeEvents()
 	defer sub.Close()
 
 	for event := range sub.Receive() {

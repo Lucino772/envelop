@@ -4,6 +4,7 @@ import (
 	_ "embed"
 	"errors"
 	"fmt"
+	"os"
 	"slices"
 	"time"
 
@@ -44,6 +45,14 @@ type configData struct {
 		Name    string                 `yaml:"uses,omitempty"`
 		Options map[string]interface{} `yaml:"with,omitempty"`
 	} `yaml:"modules,omitempty"`
+}
+
+func LoadFile(path string) (*Config, error) {
+	data, err := os.ReadFile(path)
+	if err != nil {
+		return nil, err
+	}
+	return Load(data)
 }
 
 func Load(source []byte) (*Config, error) {

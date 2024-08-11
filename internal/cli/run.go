@@ -56,7 +56,7 @@ func runRun(opts *wrapperOptions) (err error) {
 		opts.Config = filepath.Join(opts.Directory, "envelop.yaml")
 	}
 
-	conf, err := loadConfig(opts.Config)
+	conf, err := wrapperconf.LoadFile(opts.Config)
 	if err != nil {
 		return err
 	}
@@ -77,16 +77,4 @@ func runRun(opts *wrapperOptions) (err error) {
 		return nil
 	}
 	return err
-}
-
-func loadConfig(configPath string) (*wrapperconf.Config, error) {
-	data, err := os.ReadFile(configPath)
-	if err != nil {
-		return nil, err
-	}
-	conf, err := wrapperconf.Load(data)
-	if err != nil {
-		return nil, err
-	}
-	return conf, nil
 }

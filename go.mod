@@ -5,6 +5,7 @@ go 1.22.3
 require (
 	github.com/go-cmd/cmd v1.4.3
 	github.com/google/shlex v0.0.0-20191202100458-e7afc7fbc510
+	github.com/magiconair/properties v1.8.7
 	github.com/mitchellh/mapstructure v1.5.0
 	github.com/spf13/cobra v1.8.1
 	github.com/xeipuuv/gojsonschema v1.2.0

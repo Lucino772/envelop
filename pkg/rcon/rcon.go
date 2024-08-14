@@ -59,9 +59,9 @@ func sendPacket(conn net.Conn, reqType []byte, data []byte, respType []byte) ([]
 		return nil, err
 	}
 
-	if !bytes.Equal(request[4:8], header[4:8]) || !bytes.Equal(request[8:12], respType) {
+	if !bytes.Equal(request[4:8], header[4:8]) || !bytes.Equal(header[8:12], respType) {
 		return nil, errors.New("invalid packet")
 	}
 
-	return response, nil
+	return response[:len(response)-2], nil
 }

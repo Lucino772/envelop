@@ -1,0 +1,33 @@
+# yaml-language-server: $schema=https://goreleaser.com/static/schema.json
+
+version: 2
+
+report_sizes: true
+before:
+  hooks:
+    - go mod tidy
+
+upx:
+  - enabled: true
+    compress: best
+    lzma: true
+
+builds:
+  - id: "envelop"
+    main: ./cmd/envelop
+    binary: envelop
+    env:
+      - CGO_ENABLED=0
+    goos:
+      - linux
+      - windows
+      - darwin
+
+archives:
+  - format: binary
+
+release:
+  draft: true
+  prerelease: auto
+  make_latest: true
+  name_template: "{{.ProjectName}} v{{.Version}}"

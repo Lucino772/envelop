@@ -117,4 +117,7 @@ $RECYCLE.BIN/
 # Windows shortcuts
 *.lnk
 
+# GoReleaser
+dist/
+
 # End of https://www.toptal.com/developers/gitignore/api/go,linux,windows,macos,visualstudiocode

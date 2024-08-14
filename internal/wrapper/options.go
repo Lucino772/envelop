@@ -3,6 +3,7 @@ package wrapper
 import (
 	"context"
 	"encoding/json"
+	"io/fs"
 	"log"
 	"os"
 	"time"
@@ -12,6 +13,7 @@ import (
 )
 
 type Wrapper interface {
+	Files() fs.FS
 	WriteStdin(command string) error
 	SendSignal(signal os.Signal) error
 	SubscribeLogs() pubsub.Subscriber[string]

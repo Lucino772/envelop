@@ -5,6 +5,7 @@ import (
 	"errors"
 	"fmt"
 	"io"
+	"io/fs"
 	"net"
 	"os"
 	"os/signal"
@@ -116,6 +117,10 @@ func (wp *wrapper) Run(parent context.Context) error {
 	err := mainErrGroup.Wait()
 	taskErrGroup.Wait()
 	return err
+}
+
+func (wp *wrapper) Files() fs.FS {
+	return os.DirFS(wp.cmd.Dir)
 }
 
 func (wp *wrapper) WriteStdin(command string) error {

@@ -27,7 +27,6 @@ archives:
   - format: binary
 
 release:
-  draft: true
   prerelease: auto
   make_latest: true
   name_template: "{{.ProjectName}} v{{.Version}}"

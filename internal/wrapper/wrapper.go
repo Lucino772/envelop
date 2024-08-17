@@ -6,6 +6,7 @@ import (
 	"fmt"
 	"io"
 	"io/fs"
+	"log/slog"
 	"net"
 	"os"
 	"os/signal"
@@ -15,6 +16,7 @@ import (
 	"time"
 
 	"github.com/Lucino772/envelop/internal/utils"
+	"github.com/Lucino772/envelop/internal/utils/logutils"
 	"github.com/Lucino772/envelop/pkg/pubsub"
 	"github.com/go-cmd/cmd"
 	"golang.org/x/sync/errgroup"
@@ -36,6 +38,7 @@ type wrapper struct {
 	eventsProducer  pubsub.Producer[Event]
 	states          map[string]any
 	idGenerator     func() (string, error)
+	logger          *slog.Logger
 }
 
 func New(program string, args []string, opts ...OptFunc) (func(context.Context) error, error) {
@@ -63,6 +66,12 @@ func New(program string, args []string, opts ...OptFunc) (func(context.Context) 
 		idGenerator:     idGenerator,
 		states:          make(map[string]any),
 	}
+	wp.logger = slog.New(logutils.NewMultiHandler(
+		slog.NewTextHandler(os.Stderr, &slog.HandlerOptions{
+			ReplaceAttr: attributeReplace,
+		}),
+		NewLoggingHandler(wp),
+	))
 	wp.eventsProducer = pubsub.NewProducer(5, wp.processEvent)
 	wp.setState(&ProcessStatusState{
 		Description: "Unknown",
@@ -138,8 +147,8 @@ func (wp *wrapper) SendSignal(signal os.Signal) error {
 
 func (wp *wrapper) SubscribeLogs() pubsub.Subscriber[string] {
 	return pubsub.NewSubscriber(wp.eventsProducer, func(e Event) (string, bool) {
-		if event, ok := e.Data.(ProcessLogEvent); ok {
-			return event.Value, true
+		if event, ok := e.Data.(LogEvent); ok && event.Level == "PROCESS" {
+			return event.Message, true
 		}
 		return "", false
 	})
@@ -193,6 +202,10 @@ func (wp *wrapper) UpdateState(state any) {
 	})
 }
 
+func (wp *wrapper) Logger() *slog.Logger {
+	return wp.logger
+}
+
 func (w *wrapper) processEvent(event Event) (Event, bool) {
 	id, err := w.idGenerator()
 	if err == nil {
@@ -231,22 +244,19 @@ func (wp *wrapper) runProcess(ctx context.Context) error {
 	wg.Add(1)
 	go func() {
 		defer wg.Done()
+		logger := wp.Logger()
 		for {
 			select {
 			case value, ok := <-wp.cmd.Stdout:
 				if !ok {
 					return
 				}
-				wp.EmitEvent(ProcessLogEvent{
-					Value: value,
-				})
+				logger.LogAttrs(ctx, LevelProcess, value)
 			case value, ok := <-wp.cmd.Stderr:
 				if !ok {
 					return
 				}
-				wp.EmitEvent(ProcessLogEvent{
-					Value: value,
-				})
+				logger.LogAttrs(ctx, LevelProcess, value)
 			case <-ctx.Done():
 				return
 			}

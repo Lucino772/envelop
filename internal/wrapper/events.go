@@ -1,8 +1,12 @@
 package wrapper
 
+import (
+	"time"
+)
+
 func GetEventName(event any) string {
 	switch event.(type) {
-	case ProcessLogEvent, *ProcessLogEvent:
+	case LogEvent, *LogEvent:
 		return "/process/log"
 	case StateUpdateEvent, *StateUpdateEvent:
 		return "/state/update"
@@ -18,8 +22,11 @@ type Event struct {
 	Data      any    `json:"data"`
 }
 
-type ProcessLogEvent struct {
-	Value string `json:"value"`
+type LogEvent struct {
+	Time    time.Time      `json:"timestamp"`
+	Message string         `json:"message"`
+	Level   string         `json:"level"`
+	Data    map[string]any `json:"data"`
 }
 
 type StateUpdateEvent struct {

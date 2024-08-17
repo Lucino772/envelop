@@ -4,7 +4,7 @@ import (
 	"context"
 	"encoding/json"
 	"io/fs"
-	"log"
+	"log/slog"
 	"os"
 	"time"
 
@@ -22,6 +22,7 @@ type Wrapper interface {
 	ReadState(state any) bool
 	SubscribeStates() pubsub.Subscriber[any]
 	UpdateState(state any)
+	Logger() *slog.Logger
 }
 
 type Stopper func(Wrapper) error
@@ -49,18 +50,6 @@ func WithModule(module Module) OptFunc {
 			opt(w)
 		}
 	}
-}
-
-func WithForwardLogToStdout() OptFunc {
-	return WithTask(func(ctx context.Context, wp Wrapper) error {
-		sub := wp.SubscribeLogs()
-		defer sub.Close()
-
-		for item := range sub.Receive() {
-			log.Println(item)
-		}
-		return nil
-	})
 }
 
 func WithWorkingDirectory(dir string) OptFunc {

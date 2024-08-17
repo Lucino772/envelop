@@ -2,7 +2,6 @@ package wrapper
 
 import (
 	"context"
-	"errors"
 	"fmt"
 	"io"
 	"io/fs"
@@ -22,8 +21,6 @@ import (
 	"golang.org/x/sync/errgroup"
 	"google.golang.org/grpc"
 )
-
-var ErrWrapperContextMissing = errors.New("wrapper context missing")
 
 type OptFunc func(*wrapper)
 

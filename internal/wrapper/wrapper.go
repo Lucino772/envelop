@@ -16,6 +16,7 @@ import (
 
 	"github.com/Lucino772/envelop/internal/utils"
 	"github.com/Lucino772/envelop/internal/utils/logutils"
+	wrapperlog "github.com/Lucino772/envelop/internal/wrapper/log"
 	"github.com/Lucino772/envelop/pkg/pubsub"
 	"github.com/go-cmd/cmd"
 	"golang.org/x/sync/errgroup"
@@ -32,6 +33,7 @@ type wrapper struct {
 	gracefulStopper Stopper
 	services        []Service
 	tasks           []Task
+	loggingHandlers []slog.Handler
 	eventsProducer  pubsub.Producer[Event]
 	states          map[string]any
 	idGenerator     func() (string, error)
@@ -57,18 +59,13 @@ func New(program string, args []string, opts ...OptFunc) (func(context.Context) 
 		gracefulTimeout: 30 * time.Second,
 		services:        make([]Service, 0),
 		tasks:           make([]Task, 0),
+		loggingHandlers: make([]slog.Handler, 0),
 		cmd:             command,
 		stdinReader:     stdinReader,
 		stdinWriter:     stdinWriter,
 		idGenerator:     idGenerator,
 		states:          make(map[string]any),
 	}
-	wp.logger = slog.New(logutils.NewMultiHandler(
-		slog.NewTextHandler(os.Stderr, &slog.HandlerOptions{
-			ReplaceAttr: attributeReplace,
-		}),
-		NewLoggingHandler(wp),
-	))
 	wp.eventsProducer = pubsub.NewProducer(5, wp.processEvent)
 	wp.setState(&ProcessStatusState{
 		Description: "Unknown",
@@ -82,18 +79,33 @@ func New(program string, args []string, opts ...OptFunc) (func(context.Context) 
 	for _, opt := range opts {
 		opt(wp)
 	}
-
+	wp.loggingHandlers = append(wp.loggingHandlers, NewEventsHandler(wp))
+	wp.logger = slog.New(logutils.NewMultiHandler(wp.loggingHandlers...))
 	return wp.Run, nil
 }
 
 func (wp *wrapper) Run(parent context.Context) error {
+	logger := wp.Logger()
+
 	ctx, cancel := context.WithCancel(parent)
 	defer cancel()
 
 	wp.tasks = append(
 		wp.tasks,
 		func(ctx context.Context, _ Wrapper) error {
-			return wp.eventsProducer.Run(ctx)
+			logger.LogAttrs(ctx, wrapperlog.LevelInfo, "Starting event producer")
+			err := wp.eventsProducer.Run(ctx)
+			if err != nil {
+				logger.LogAttrs(
+					ctx,
+					wrapperlog.LevelError,
+					"Event producer error",
+					slog.Any("error", err),
+				)
+			} else {
+				slog.LogAttrs(ctx, wrapperlog.LevelInfo, "Event producer stopped")
+			}
+			return nil
 		},
 	)
 
@@ -107,17 +119,53 @@ func (wp *wrapper) Run(parent context.Context) error {
 	for _, task := range wp.tasks {
 		task := task
 		taskErrGroup.Go(func() error {
-			return task(mainCtx, wp)
+			logger.LogAttrs(mainCtx, wrapperlog.LevelInfo, "Starting task")
+			err := task(mainCtx, wp)
+			if err != nil {
+				slog.LogAttrs(
+					mainCtx,
+					wrapperlog.LevelError,
+					"Task error",
+					slog.Any("error", err),
+				)
+			} else {
+				slog.LogAttrs(mainCtx, wrapperlog.LevelInfo, "Task done")
+			}
+			return err
 		})
 	}
 
 	mainErrGroup.Go(func() error {
 		defer cancel()
-		return wp.runGrpcServer(mainCtx)
+		logger.LogAttrs(mainCtx, wrapperlog.LevelInfo, "Starting gRPC server")
+		err := wp.runGrpcServer(mainCtx)
+		if err != nil {
+			slog.LogAttrs(
+				mainCtx,
+				wrapperlog.LevelError,
+				"gRPC server error",
+				slog.Any("error", err),
+			)
+		} else {
+			logger.LogAttrs(mainCtx, wrapperlog.LevelInfo, "gRPC server stopped")
+		}
+		return err
 	})
 	mainErrGroup.Go(func() error {
 		defer cancel()
-		return wp.runProcess(mainCtx)
+		logger.LogAttrs(mainCtx, wrapperlog.LevelInfo, "Starting process")
+		err := wp.runProcess(mainCtx)
+		if err != nil {
+			slog.LogAttrs(
+				mainCtx,
+				wrapperlog.LevelError,
+				"Process error",
+				slog.Any("error", err),
+			)
+		} else {
+			logger.LogAttrs(mainCtx, wrapperlog.LevelInfo, "Process stopped")
+		}
+		return err
 	})
 
 	err := mainErrGroup.Wait()
@@ -248,12 +296,12 @@ func (wp *wrapper) runProcess(ctx context.Context) error {
 				if !ok {
 					return
 				}
-				logger.LogAttrs(ctx, LevelProcess, value)
+				logger.LogAttrs(ctx, wrapperlog.LevelProcess, value)
 			case value, ok := <-wp.cmd.Stderr:
 				if !ok {
 					return
 				}
-				logger.LogAttrs(ctx, LevelProcess, value)
+				logger.LogAttrs(ctx, wrapperlog.LevelProcess, value)
 			case <-ctx.Done():
 				return
 			}

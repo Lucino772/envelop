@@ -9,6 +9,7 @@ import (
 
 	"github.com/Lucino772/envelop/internal/wrapper"
 	wrapperconf "github.com/Lucino772/envelop/internal/wrapper/conf"
+	wrapperlog "github.com/Lucino772/envelop/internal/wrapper/log"
 	"github.com/spf13/cobra"
 )
 
@@ -64,6 +65,9 @@ func runRun(opts *wrapperOptions) (err error) {
 	conf.Options = append(
 		conf.Options,
 		wrapper.WithWorkingDirectory(opts.Directory),
+		wrapper.WithLoggingHandler(
+			wrapperlog.NewTextHandler(os.Stdout, wrapperlog.LevelProcess),
+		),
 	)
 
 	run, err := wrapper.New(conf.Program, conf.Args, conf.Options...)

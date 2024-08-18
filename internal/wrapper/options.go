@@ -44,6 +44,12 @@ func WithService(s Service) OptFunc {
 	}
 }
 
+func WithLoggingHandler(h slog.Handler) OptFunc {
+	return func(w *wrapper) {
+		w.loggingHandlers = append(w.loggingHandlers, h)
+	}
+}
+
 func WithModule(module Module) OptFunc {
 	return func(w *wrapper) {
 		for _, opt := range module(w) {

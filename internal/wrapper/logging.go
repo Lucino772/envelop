@@ -2,61 +2,33 @@ package wrapper
 
 import (
 	"context"
-	"fmt"
 	"log/slog"
+
+	wrapperlog "github.com/Lucino772/envelop/internal/wrapper/log"
 )
 
-var (
-	LevelDebug   = slog.LevelDebug
-	LevelInfo    = slog.LevelInfo
-	LevelWarn    = slog.LevelWarn
-	LevelError   = slog.LevelError
-	LevelProcess = slog.Level(12)
-)
-
-func attributeReplace(groups []string, a slog.Attr) slog.Attr {
-	if a.Key == slog.LevelKey {
-		level := a.Value.Any().(slog.Level)
-
-		str := func(base string, val slog.Level) slog.Value {
-			if val == 0 {
-				return slog.StringValue(base)
-			}
-			return slog.StringValue(fmt.Sprintf("%s%+d", base, val))
-		}
-
-		switch {
-		case level < LevelInfo:
-			a.Value = str("DEBUG", level-LevelDebug)
-		case level < LevelWarn:
-			a.Value = str("INFO", level-LevelInfo)
-		case level < LevelError:
-			a.Value = str("WARN", level-LevelWarn)
-		case level < LevelProcess:
-			a.Value = str("ERROR", level-LevelError)
-		default:
-			a.Value = str("PROCESS", level-LevelProcess)
-		}
-	}
-	return a
-}
-
-type LoggingHandler struct {
+type EventsLoggingHandler struct {
 	wrapper Wrapper
 }
 
-func NewLoggingHandler(wrapper Wrapper) *LoggingHandler {
-	return &LoggingHandler{
-		wrapper: wrapper,
-	}
+func NewEventsHandler(w Wrapper) *EventsLoggingHandler {
+	return &EventsLoggingHandler{wrapper: w}
 }
 
-func (handler *LoggingHandler) Enabled(ctx context.Context, level slog.Level) bool {
+func (handler *EventsLoggingHandler) Enabled(ctx context.Context, level slog.Level) bool {
 	return true
 }
 
-func (handler *LoggingHandler) Handle(ctx context.Context, record slog.Record) error {
-	level := attributeReplace([]string{}, slog.Any(slog.LevelKey, record.Level))
+func (handler *EventsLoggingHandler) WithAttrs(attrs []slog.Attr) slog.Handler {
+	return handler
+}
+
+func (handler *EventsLoggingHandler) WithGroup(name string) slog.Handler {
+	return handler
+}
+
+func (handler *EventsLoggingHandler) Handle(ctx context.Context, record slog.Record) error {
+	level := wrapperlog.LevelAttributeReplacer([]string{}, slog.Any(slog.LevelKey, record.Level))
 	event := LogEvent{
 		Time:    record.Time,
 		Message: record.Message,
@@ -69,12 +41,4 @@ func (handler *LoggingHandler) Handle(ctx context.Context, record slog.Record) e
 	})
 	handler.wrapper.EmitEvent(event)
 	return nil
-}
-
-func (handler *LoggingHandler) WithAttrs(attrs []slog.Attr) slog.Handler {
-	return handler
-}
-
-func (handler *LoggingHandler) WithGroup(name string) slog.Handler {
-	return handler
 }

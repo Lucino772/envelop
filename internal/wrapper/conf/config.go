@@ -10,6 +10,7 @@ import (
 
 	"github.com/Lucino772/envelop/internal/modules"
 	"github.com/Lucino772/envelop/internal/wrapper"
+	wrapperlog "github.com/Lucino772/envelop/internal/wrapper/log"
 	"github.com/google/shlex"
 	"github.com/mitchellh/mapstructure"
 	"github.com/xeipuuv/gojsonschema"
@@ -41,6 +42,10 @@ type configData struct {
 		Type    string         `yaml:"type,omitempty"`
 		Options map[string]any `yaml:"options,omitempty"`
 	} `yaml:"hooks,omitempty"`
+	Logging []struct {
+		Type    string         `yaml:"type,omitempty"`
+		Options map[string]any `yaml:"options,omitempty"`
+	} `yaml:"logging,omitempty"`
 	Modules []struct {
 		Name    string                 `yaml:"uses,omitempty"`
 		Options map[string]interface{} `yaml:"with,omitempty"`
@@ -97,6 +102,15 @@ func Load(source []byte) (*Config, error) {
 			config.Options = append(
 				config.Options,
 				wrapper.WithHook(h),
+			)
+		}
+	}
+
+	for _, logconf := range data.Logging {
+		if handler := wrapperlog.NewHandler(logconf.Type, logconf.Options); handler != nil {
+			config.Options = append(
+				config.Options,
+				wrapper.WithLoggingHandler(handler),
 			)
 		}
 	}

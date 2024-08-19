@@ -11,6 +11,11 @@ process:
     options:
       cmd: stop
 
+logging:
+  - type: default
+    options:
+      format: text
+      level: 12
 
 modules:
   - uses: envelop.core

@@ -3,8 +3,6 @@ package wrapper
 import (
 	"context"
 	"log/slog"
-
-	wrapperlog "github.com/Lucino772/envelop/internal/wrapper/log"
 )
 
 type EventsLoggingHandler struct {
@@ -28,7 +26,7 @@ func (handler *EventsLoggingHandler) WithGroup(name string) slog.Handler {
 }
 
 func (handler *EventsLoggingHandler) Handle(ctx context.Context, record slog.Record) error {
-	level := wrapperlog.LevelAttributeReplacer([]string{}, slog.Any(slog.LevelKey, record.Level))
+	level := levelAttributeReplacer([]string{}, slog.Any(slog.LevelKey, record.Level))
 	event := LogEvent{
 		Time:    record.Time,
 		Message: record.Message,

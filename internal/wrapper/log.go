@@ -1,4 +1,4 @@
-package wrapperlog
+package wrapper
 
 import (
 	"fmt"
@@ -13,7 +13,16 @@ var (
 	LevelProcess = slog.Level(12)
 )
 
-func LevelAttributeReplacer(groups []string, a slog.Attr) slog.Attr {
+func NewLoggingHandler(typ string, opts map[string]any) slog.Handler {
+	switch typ {
+	case "default":
+		return NewDefaultLoggingHandler(opts)
+	default:
+		return nil
+	}
+}
+
+func levelAttributeReplacer(groups []string, a slog.Attr) slog.Attr {
 	if a.Key == slog.LevelKey {
 		level := a.Value.Any().(slog.Level)
 

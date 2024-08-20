@@ -16,7 +16,6 @@ import (
 
 	"github.com/Lucino772/envelop/internal/utils"
 	"github.com/Lucino772/envelop/internal/utils/logutils"
-	wrapperlog "github.com/Lucino772/envelop/internal/wrapper/log"
 	"github.com/Lucino772/envelop/pkg/pubsub"
 	"github.com/go-cmd/cmd"
 	"golang.org/x/sync/errgroup"
@@ -93,17 +92,17 @@ func (wp *wrapper) Run(parent context.Context) error {
 	wp.tasks = append(
 		wp.tasks,
 		func(ctx context.Context, _ Wrapper) error {
-			logger.LogAttrs(ctx, wrapperlog.LevelInfo, "Starting event producer")
+			logger.LogAttrs(ctx, LevelInfo, "Starting event producer")
 			err := wp.eventsProducer.Run(ctx)
 			if err != nil {
 				logger.LogAttrs(
 					ctx,
-					wrapperlog.LevelError,
+					LevelError,
 					"Event producer error",
 					slog.Any("error", err),
 				)
 			} else {
-				slog.LogAttrs(ctx, wrapperlog.LevelInfo, "Event producer stopped")
+				slog.LogAttrs(ctx, LevelInfo, "Event producer stopped")
 			}
 			return nil
 		},
@@ -119,17 +118,17 @@ func (wp *wrapper) Run(parent context.Context) error {
 	for _, task := range wp.tasks {
 		task := task
 		taskErrGroup.Go(func() error {
-			logger.LogAttrs(mainCtx, wrapperlog.LevelInfo, "Starting task")
+			logger.LogAttrs(mainCtx, LevelInfo, "Starting task")
 			err := task(mainCtx, wp)
 			if err != nil {
 				slog.LogAttrs(
 					mainCtx,
-					wrapperlog.LevelError,
+					LevelError,
 					"Task error",
 					slog.Any("error", err),
 				)
 			} else {
-				slog.LogAttrs(mainCtx, wrapperlog.LevelInfo, "Task done")
+				slog.LogAttrs(mainCtx, LevelInfo, "Task done")
 			}
 			return err
 		})
@@ -137,33 +136,33 @@ func (wp *wrapper) Run(parent context.Context) error {
 
 	mainErrGroup.Go(func() error {
 		defer cancel()
-		logger.LogAttrs(mainCtx, wrapperlog.LevelInfo, "Starting gRPC server")
+		logger.LogAttrs(mainCtx, LevelInfo, "Starting gRPC server")
 		err := wp.runGrpcServer(mainCtx)
 		if err != nil {
 			slog.LogAttrs(
 				mainCtx,
-				wrapperlog.LevelError,
+				LevelError,
 				"gRPC server error",
 				slog.Any("error", err),
 			)
 		} else {
-			logger.LogAttrs(mainCtx, wrapperlog.LevelInfo, "gRPC server stopped")
+			logger.LogAttrs(mainCtx, LevelInfo, "gRPC server stopped")
 		}
 		return err
 	})
 	mainErrGroup.Go(func() error {
 		defer cancel()
-		logger.LogAttrs(mainCtx, wrapperlog.LevelInfo, "Starting process")
+		logger.LogAttrs(mainCtx, LevelInfo, "Starting process")
 		err := wp.runProcess(mainCtx)
 		if err != nil {
 			slog.LogAttrs(
 				mainCtx,
-				wrapperlog.LevelError,
+				LevelError,
 				"Process error",
 				slog.Any("error", err),
 			)
 		} else {
-			logger.LogAttrs(mainCtx, wrapperlog.LevelInfo, "Process stopped")
+			logger.LogAttrs(mainCtx, LevelInfo, "Process stopped")
 		}
 		return err
 	})
@@ -296,12 +295,12 @@ func (wp *wrapper) runProcess(ctx context.Context) error {
 				if !ok {
 					return
 				}
-				logger.LogAttrs(ctx, wrapperlog.LevelProcess, value)
+				logger.LogAttrs(ctx, LevelProcess, value)
 			case value, ok := <-wp.cmd.Stderr:
 				if !ok {
 					return
 				}
-				logger.LogAttrs(ctx, wrapperlog.LevelProcess, value)
+				logger.LogAttrs(ctx, LevelProcess, value)
 			case <-ctx.Done():
 				return
 			}

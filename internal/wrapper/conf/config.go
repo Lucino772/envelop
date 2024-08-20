@@ -10,7 +10,6 @@ import (
 
 	"github.com/Lucino772/envelop/internal/modules"
 	"github.com/Lucino772/envelop/internal/wrapper"
-	wrapperlog "github.com/Lucino772/envelop/internal/wrapper/log"
 	"github.com/google/shlex"
 	"github.com/mitchellh/mapstructure"
 	"github.com/xeipuuv/gojsonschema"
@@ -107,7 +106,7 @@ func Load(source []byte) (*Config, error) {
 	}
 
 	for _, logconf := range data.Logging {
-		if handler := wrapperlog.NewHandler(logconf.Type, logconf.Options); handler != nil {
+		if handler := wrapper.NewLoggingHandler(logconf.Type, logconf.Options); handler != nil {
 			config.Options = append(
 				config.Options,
 				wrapper.WithLoggingHandler(handler),

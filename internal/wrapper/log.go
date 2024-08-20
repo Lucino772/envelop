@@ -17,6 +17,8 @@ func NewLoggingHandler(typ string, opts map[string]any) slog.Handler {
 	switch typ {
 	case "default":
 		return NewDefaultLoggingHandler(opts)
+	case "http":
+		return NewHttpLoggingHandler(opts)
 	default:
 		return nil
 	}

@@ -2,6 +2,7 @@ package wrapper
 
 import (
 	"context"
+	"errors"
 	"fmt"
 	"io"
 	"io/fs"
@@ -92,17 +93,16 @@ func (wp *wrapper) Run(parent context.Context) error {
 		wp.tasks,
 		func(ctx context.Context, _ Wrapper) error {
 			logger.LogAttrs(ctx, LevelInfo, "Starting event producer")
-			err := wp.eventsProducer.Run(ctx)
-			if err != nil {
+			if err := wp.eventsProducer.Run(ctx); err != nil && !errors.Is(err, context.Canceled) {
 				logger.LogAttrs(
 					ctx,
 					LevelError,
 					"Event producer error",
 					slog.Any("error", err),
 				)
-			} else {
-				slog.LogAttrs(ctx, LevelInfo, "Event producer stopped")
+				return err
 			}
+			logger.LogAttrs(ctx, LevelInfo, "Event producer stopped")
 			return nil
 		},
 	)

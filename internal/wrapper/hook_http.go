@@ -24,7 +24,7 @@ func NewHttpHook(options map[string]any) *HttpHook {
 
 func (hook *HttpHook) Execute(parent context.Context, data []byte) error {
 	// TODO: What about security/authentication
-	ctx, cancel := context.WithTimeout(parent, 10*time.Second)
+	ctx, cancel := context.WithTimeout(parent, 2*time.Second)
 	defer cancel()
 
 	req, err := http.NewRequestWithContext(ctx, "POST", hook.Url, bytes.NewBuffer(data))

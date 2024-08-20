@@ -50,6 +50,19 @@ func WithLoggingHandler(h slog.Handler) OptFunc {
 	}
 }
 
+func WithForwardProcessLogsToLogger() OptFunc {
+	return WithTask(func(ctx context.Context, wp Wrapper) error {
+		sub := wp.SubscribeLogs()
+		defer sub.Close()
+
+		logger := wp.Logger()
+		for log := range sub.Receive() {
+			logger.Info(log, slog.Bool("forward", true))
+		}
+		return nil
+	})
+}
+
 func WithModule(module Module) OptFunc {
 	return func(w *wrapper) {
 		for _, opt := range module(w) {

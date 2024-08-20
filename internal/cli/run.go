@@ -64,6 +64,7 @@ func runRun(opts *wrapperOptions) (err error) {
 	conf.Options = append(
 		conf.Options,
 		wrapper.WithWorkingDirectory(opts.Directory),
+		wrapper.WithForwardProcessLogsToLogger(),
 	)
 
 	run, err := wrapper.New(conf.Program, conf.Args, conf.Options...)

@@ -78,7 +78,6 @@ func New(program string, args []string, opts ...OptFunc) (func(context.Context) 
 	for _, opt := range opts {
 		opt(wp)
 	}
-	wp.loggingHandlers = append(wp.loggingHandlers, NewEventsHandler(wp))
 	wp.logger = slog.New(logutils.NewMultiHandler(wp.loggingHandlers...))
 	return wp.Run, nil
 }
@@ -191,7 +190,7 @@ func (wp *wrapper) SendSignal(signal os.Signal) error {
 
 func (wp *wrapper) SubscribeLogs() pubsub.Subscriber[string] {
 	return pubsub.NewSubscriber(wp.eventsProducer, func(e Event) (string, bool) {
-		if event, ok := e.Data.(LogEvent); ok && event.Level == "PROCESS" {
+		if event, ok := e.Data.(ProcessLogEvent); ok {
 			return event.Message, true
 		}
 		return "", false
@@ -288,19 +287,18 @@ func (wp *wrapper) runProcess(ctx context.Context) error {
 	wg.Add(1)
 	go func() {
 		defer wg.Done()
-		logger := wp.Logger()
 		for {
 			select {
 			case value, ok := <-wp.cmd.Stdout:
 				if !ok {
 					return
 				}
-				logger.LogAttrs(ctx, LevelProcess, value)
+				wp.EmitEvent(ProcessLogEvent{Message: value})
 			case value, ok := <-wp.cmd.Stderr:
 				if !ok {
 					return
 				}
-				logger.LogAttrs(ctx, LevelProcess, value)
+				wp.EmitEvent(ProcessLogEvent{Message: value})
 			case <-ctx.Done():
 				return
 			}

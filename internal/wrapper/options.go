@@ -57,7 +57,11 @@ func WithForwardProcessLogsToLogger() OptFunc {
 
 		logger := wp.Logger()
 		for log := range sub.Receive() {
-			logger.Info(log, slog.Bool("forward", true))
+			logger.LogAttrs(
+				ctx,
+				LevelProcess,
+				log,
+			)
 		}
 		return nil
 	})

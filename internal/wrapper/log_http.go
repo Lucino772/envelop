@@ -32,6 +32,10 @@ func NewHttpLoggingHandler(opts map[string]any) *HttpLoggingHandler {
 }
 
 func (handler *HttpLoggingHandler) Enabled(ctx context.Context, level slog.Level) bool {
+	// TODO: Make this configurable
+	if level == LevelProcess {
+		return false
+	}
 	return level >= handler.Level
 }
 

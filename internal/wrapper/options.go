@@ -44,12 +44,6 @@ func WithService(s Service) OptFunc {
 	}
 }
 
-func WithLoggingHandler(h slog.Handler) OptFunc {
-	return func(w *wrapper) {
-		w.loggingHandlers = append(w.loggingHandlers, h)
-	}
-}
-
 func WithForwardProcessLogsToLogger() OptFunc {
 	return WithTask(func(ctx context.Context, wp Wrapper) error {
 		sub := wp.SubscribeLogs()

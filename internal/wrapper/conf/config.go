@@ -4,11 +4,13 @@ import (
 	_ "embed"
 	"errors"
 	"fmt"
+	"log/slog"
 	"os"
 	"slices"
 	"time"
 
 	"github.com/Lucino772/envelop/internal/modules"
+	"github.com/Lucino772/envelop/internal/utils/logutils"
 	"github.com/Lucino772/envelop/internal/wrapper"
 	"github.com/google/shlex"
 	"github.com/mitchellh/mapstructure"
@@ -25,6 +27,7 @@ type Config struct {
 	Program string
 	Args    []string
 	Options []wrapper.OptFunc
+	Logger  *slog.Logger
 }
 
 type configData struct {
@@ -105,14 +108,13 @@ func Load(source []byte) (*Config, error) {
 		}
 	}
 
+	handlers := make([]slog.Handler, 0)
 	for _, logconf := range data.Logging {
 		if handler := wrapper.NewLoggingHandler(logconf.Type, logconf.Options); handler != nil {
-			config.Options = append(
-				config.Options,
-				wrapper.WithLoggingHandler(handler),
-			)
+			handlers = append(handlers, handler)
 		}
 	}
+	config.Logger = slog.New(logutils.NewMultiHandler(handlers...))
 
 	for _, mod := range data.Modules {
 		if module := modules.NewModule(mod.Name, mod.Options); module != nil {

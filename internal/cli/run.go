@@ -67,7 +67,7 @@ func runRun(opts *wrapperOptions) (err error) {
 		wrapper.WithForwardProcessLogsToLogger(),
 	)
 
-	run, err := wrapper.New(conf.Program, conf.Args, conf.Options...)
+	run, err := wrapper.New(conf.Program, conf.Args, conf.Logger, conf.Options...)
 	if err != nil {
 		log.Println("Error while creating wrapper")
 		return err

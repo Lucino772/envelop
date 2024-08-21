@@ -16,7 +16,6 @@ import (
 	"time"
 
 	"github.com/Lucino772/envelop/internal/utils"
-	"github.com/Lucino772/envelop/internal/utils/logutils"
 	"github.com/Lucino772/envelop/pkg/pubsub"
 	"github.com/go-cmd/cmd"
 	"golang.org/x/sync/errgroup"
@@ -33,14 +32,13 @@ type wrapper struct {
 	gracefulStopper Stopper
 	services        []Service
 	tasks           []Task
-	loggingHandlers []slog.Handler
 	eventsProducer  pubsub.Producer[Event]
 	states          map[string]any
 	idGenerator     func() (string, error)
 	logger          *slog.Logger
 }
 
-func New(program string, args []string, opts ...OptFunc) (func(context.Context) error, error) {
+func New(program string, args []string, logger *slog.Logger, opts ...OptFunc) (func(context.Context) error, error) {
 	idGenerator, err := utils.NewNanoIDGenerator()
 	if err != nil {
 		return nil, err
@@ -59,12 +57,12 @@ func New(program string, args []string, opts ...OptFunc) (func(context.Context) 
 		gracefulTimeout: 30 * time.Second,
 		services:        make([]Service, 0),
 		tasks:           make([]Task, 0),
-		loggingHandlers: make([]slog.Handler, 0),
 		cmd:             command,
 		stdinReader:     stdinReader,
 		stdinWriter:     stdinWriter,
 		idGenerator:     idGenerator,
 		states:          make(map[string]any),
+		logger:          logger,
 	}
 	wp.eventsProducer = pubsub.NewProducer(5, wp.processEvent)
 	wp.setState(&ProcessStatusState{
@@ -79,7 +77,6 @@ func New(program string, args []string, opts ...OptFunc) (func(context.Context) 
 	for _, opt := range opts {
 		opt(wp)
 	}
-	wp.logger = slog.New(logutils.NewMultiHandler(wp.loggingHandlers...))
 	return wp.Run, nil
 }
 

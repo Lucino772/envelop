@@ -21,16 +21,11 @@ func (task *checkMinecraftStatusTask) Name() string {
 func (task *checkMinecraftStatusTask) Run(ctx context.Context, wp wrapper.Wrapper) error {
 	sub := wp.SubscribeLogs()
 	defer sub.Close()
-	messages := sub.Receive()
 
-	for {
-		select {
-		case value := <-messages:
-			task.processValue(wp, value)
-		case <-ctx.Done():
-			return ctx.Err()
-		}
+	for value := range sub.Receive() {
+		task.processValue(wp, value)
 	}
+	return nil
 }
 
 func (task *checkMinecraftStatusTask) processSubexpNames(regex *regexp.Regexp, matches []string) map[string]string {

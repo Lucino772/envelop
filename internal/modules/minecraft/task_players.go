@@ -17,6 +17,10 @@ func NewFetchMinecraftPlayersTask() *fetchMinecraftPlayersTask {
 	return &fetchMinecraftPlayersTask{}
 }
 
+func (task *fetchMinecraftPlayersTask) Name() string {
+	return "watch-minecraft-players"
+}
+
 func (task *fetchMinecraftPlayersTask) Run(ctx context.Context, wp wrapper.Wrapper) error {
 	ready := task.waitQueryReady(ctx, wp)
 	if !ready {

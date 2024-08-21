@@ -27,7 +27,12 @@ type Wrapper interface {
 
 type Stopper func(Wrapper) error
 type Module = func(Wrapper) []OptFunc
-type Task = func(context.Context, Wrapper) error
+
+type Task interface {
+	Name() string
+	Run(context.Context, Wrapper) error
+}
+
 type Service interface {
 	Register(grpc.ServiceRegistrar)
 }
@@ -45,20 +50,24 @@ func WithService(s Service) OptFunc {
 }
 
 func WithForwardProcessLogsToLogger() OptFunc {
-	return WithTask(func(ctx context.Context, wp Wrapper) error {
-		sub := wp.SubscribeLogs()
-		defer sub.Close()
+	task := NewNamedTask(
+		"process-logs-forward",
+		func(ctx context.Context, wp Wrapper) error {
+			sub := wp.SubscribeLogs()
+			defer sub.Close()
 
-		logger := wp.Logger()
-		for log := range sub.Receive() {
-			logger.LogAttrs(
-				ctx,
-				LevelProcess,
-				log,
-			)
-		}
-		return nil
-	})
+			logger := wp.Logger()
+			for log := range sub.Receive() {
+				logger.LogAttrs(
+					ctx,
+					LevelProcess,
+					log,
+				)
+			}
+			return nil
+		},
+	)
+	return WithTask(task)
 }
 
 func WithModule(module Module) OptFunc {
@@ -94,17 +103,22 @@ func WithGracefulStopper(stopper Stopper) OptFunc {
 }
 
 func WithHook(hook Hook) OptFunc {
-	return WithTask(func(ctx context.Context, wp Wrapper) error {
-		sub := wp.SubscribeEvents()
-		defer sub.Close()
+	// TODO: Add name from hook
+	task := NewNamedTask(
+		"hook",
+		func(ctx context.Context, wp Wrapper) error {
+			sub := wp.SubscribeEvents()
+			defer sub.Close()
 
-		for event := range sub.Receive() {
-			data, err := json.Marshal(event)
-			if err == nil {
-				// TODO: Handle error, log maybe ?
-				_ = hook.Execute(ctx, data)
+			for event := range sub.Receive() {
+				data, err := json.Marshal(event)
+				if err == nil {
+					// TODO: Handle error, log maybe ?
+					_ = hook.Execute(ctx, data)
+				}
 			}
-		}
-		return nil
-	})
+			return nil
+		},
+	)
+	return WithTask(task)
 }

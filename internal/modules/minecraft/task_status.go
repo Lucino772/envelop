@@ -14,6 +14,10 @@ func NewCheckMinecraftStatusTask() *checkMinecraftStatusTask {
 	return &checkMinecraftStatusTask{}
 }
 
+func (task *checkMinecraftStatusTask) Name() string {
+	return "watch-minecraft-status"
+}
+
 func (task *checkMinecraftStatusTask) Run(ctx context.Context, wp wrapper.Wrapper) error {
 	sub := wp.SubscribeLogs()
 	defer sub.Close()

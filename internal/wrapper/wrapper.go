@@ -2,7 +2,6 @@ package wrapper
 
 import (
 	"context"
-	"errors"
 	"fmt"
 	"io"
 	"io/fs"
@@ -88,20 +87,12 @@ func (wp *wrapper) Run(parent context.Context) error {
 
 	wp.tasks = append(
 		wp.tasks,
-		func(ctx context.Context, _ Wrapper) error {
-			logger.LogAttrs(ctx, LevelInfo, "Starting event producer")
-			if err := wp.eventsProducer.Run(ctx); err != nil && !errors.Is(err, context.Canceled) {
-				logger.LogAttrs(
-					ctx,
-					LevelError,
-					"Event producer error",
-					slog.Any("error", err),
-				)
-				return err
-			}
-			logger.LogAttrs(ctx, LevelInfo, "Event producer stopped")
-			return nil
-		},
+		NewNamedTask(
+			"events-producer",
+			func(ctx context.Context, _ Wrapper) error {
+				return wp.eventsProducer.Run(ctx)
+			},
+		),
 	)
 
 	var (
@@ -114,17 +105,18 @@ func (wp *wrapper) Run(parent context.Context) error {
 	for _, task := range wp.tasks {
 		task := task
 		taskErrGroup.Go(func() error {
+			logger := logger.With(slog.String("task", task.Name()))
 			logger.LogAttrs(mainCtx, LevelInfo, "Starting task")
-			err := task(mainCtx, wp)
+			err := task.Run(mainCtx, wp)
 			if err != nil {
-				slog.LogAttrs(
+				logger.LogAttrs(
 					mainCtx,
 					LevelError,
 					"Task error",
 					slog.Any("error", err),
 				)
 			} else {
-				slog.LogAttrs(mainCtx, LevelInfo, "Task done")
+				logger.LogAttrs(mainCtx, LevelInfo, "Task done")
 			}
 			return err
 		})
@@ -135,7 +127,7 @@ func (wp *wrapper) Run(parent context.Context) error {
 		logger.LogAttrs(mainCtx, LevelInfo, "Starting gRPC server")
 		err := wp.runGrpcServer(mainCtx)
 		if err != nil {
-			slog.LogAttrs(
+			logger.LogAttrs(
 				mainCtx,
 				LevelError,
 				"gRPC server error",
@@ -151,7 +143,7 @@ func (wp *wrapper) Run(parent context.Context) error {
 		logger.LogAttrs(mainCtx, LevelInfo, "Starting process")
 		err := wp.runProcess(mainCtx)
 		if err != nil {
-			slog.LogAttrs(
+			logger.LogAttrs(
 				mainCtx,
 				LevelError,
 				"Process error",

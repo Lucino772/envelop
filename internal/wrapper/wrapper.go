@@ -2,6 +2,7 @@ package wrapper
 
 import (
 	"context"
+	"errors"
 	"fmt"
 	"io"
 	"io/fs"
@@ -90,7 +91,11 @@ func (wp *wrapper) Run(parent context.Context) error {
 		NewNamedTask(
 			"events-producer",
 			func(ctx context.Context, _ Wrapper) error {
-				return wp.eventsProducer.Run(ctx)
+				err := wp.eventsProducer.Run(ctx)
+				if errors.Is(err, context.Canceled) {
+					return nil
+				}
+				return err
 			},
 		),
 	)

@@ -1,75 +1,113 @@
 package steamcm
 
 import (
-	"encoding/binary"
-	"errors"
-	"fmt"
-	"io"
-	"net"
-)
+	"bytes"
+	"log"
+	"sync"
 
-const (
-	tcpConnectionMagic uint32 = 0x31305456
+	"github.com/Lucino772/envelop/pkg/steam"
+	"github.com/Lucino772/envelop/pkg/steam/steamlang"
 )
 
 type Connection interface {
-	WritePacket([]byte) error
-	ReadPacket() ([]byte, error)
-	Close() error
-}
-
-type PacketConnection interface {
+	HandlePacket(*Packet) error
 	SendPacket(*Packet) error
-	RecvPacket() (*Packet, error)
-	HandlePacket(*Packet) (*Packet, error)
-	Close() error
+	AddHandler(steamlang.EMsg, func(*Packet) error)
 }
 
-type TCPConnection struct {
-	inner net.Conn
+type SteamConnection struct {
+	layer      Layer
+	handlers   map[steamlang.EMsg]func(*Packet) error
+	mu         sync.Mutex
+	cond       *sync.Cond
+	dataToSend bytes.Buffer
+
+	steamId   *steam.SteamId
+	sessionId *int32
 }
 
-func NewTCPConnection(host string, port uint16) (Connection, error) {
-	conn, err := net.Dial("tcp", fmt.Sprintf("%s:%d", host, port))
+func NewSteamConnection(layer Layer) *SteamConnection {
+	conn := &SteamConnection{
+		layer:    layer,
+		handlers: make(map[steamlang.EMsg]func(*Packet) error),
+	}
+	conn.cond = sync.NewCond(&conn.mu)
+	return conn
+}
+
+func (conn *SteamConnection) SetSteamId(id *steam.SteamId) {
+	conn.steamId = id
+}
+
+func (conn *SteamConnection) SetSessionId(id *int32) {
+	conn.sessionId = id
+}
+
+func (conn *SteamConnection) ProcessBytes(data []byte) error {
+	events, err := conn.layer.ProcessIncoming([]Event{
+		MakeEvent(EventType_Incoming, EventDataReceived{Data: data}),
+	})
 	if err != nil {
-		return nil, err
-	}
-	return &TCPConnection{inner: conn}, nil
-}
-
-func (conn *TCPConnection) WritePacket(packet []byte) error {
-	var pktHeader = struct {
-		PktLen   uint32
-		PktMagic uint32
-	}{
-		uint32(len(packet)),
-		tcpConnectionMagic,
-	}
-	if err := binary.Write(conn.inner, binary.LittleEndian, pktHeader); err != nil {
 		return err
 	}
-	_, err := conn.inner.Write(packet)
-	return err
+	for _, event := range events {
+		if err := conn.handleEvent(event); err != nil {
+			return err
+		}
+	}
+	return nil
 }
 
-func (conn *TCPConnection) ReadPacket() ([]byte, error) {
-	var pktHeader struct {
-		PktLen   uint32
-		PktMagic uint32
+func (conn *SteamConnection) Read(data []byte) (int, error) {
+	conn.mu.Lock()
+	defer conn.mu.Unlock()
+	if conn.dataToSend.Len() == 0 {
+		conn.cond.Wait()
 	}
-	if err := binary.Read(conn.inner, binary.LittleEndian, &pktHeader); err != nil {
-		return nil, err
-	}
-	if pktHeader.PktMagic != tcpConnectionMagic {
-		return nil, errors.New("unknown packet")
-	}
-	pktData := make([]byte, pktHeader.PktLen)
-	if _, err := io.ReadFull(conn.inner, pktData); err != nil {
-		return nil, err
-	}
-	return pktData, nil
+	return conn.dataToSend.Read(data)
 }
 
-func (conn *TCPConnection) Close() error {
-	return conn.inner.Close()
+func (conn *SteamConnection) AddHandler(msg steamlang.EMsg, handler func(*Packet) error) {
+	conn.handlers[msg] = handler
+}
+
+func (conn *SteamConnection) SendPacket(packet *Packet) error {
+	events, err := conn.layer.ProcessOutgoing([]Event{
+		MakeEvent(EventType_Outgoing, EventPacketTosend{Packet: packet}),
+	})
+	if err != nil {
+		return err
+	}
+	for _, event := range events {
+		if err := conn.handleEvent(event); err != nil {
+			return err
+		}
+	}
+	return nil
+}
+
+func (conn *SteamConnection) HandlePacket(packet *Packet) error {
+	if handler, ok := conn.handlers[packet.MsgType()]; ok {
+		return handler(packet)
+	}
+	return nil
+}
+
+func (conn *SteamConnection) handleEvent(event Event) error {
+	switch ev := event.Payload.(type) {
+	case EventPacketReceived:
+		return conn.HandlePacket(ev.Packet)
+	case EventDataToSend:
+		if _, err := conn.dataToSend.Write(ev.Data); err != nil {
+			return err
+		}
+		conn.cond.Signal()
+	case EventChannelEncrypted:
+		log.Println("Channel successfully encrypted !")
+	case EventLogOnSuccess:
+		log.Println("Successfully logged-on !")
+	case EventLogOnError:
+		log.Println("Failed to log-in !")
+	}
+	return nil
 }

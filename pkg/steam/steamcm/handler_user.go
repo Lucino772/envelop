@@ -9,17 +9,19 @@ import (
 	"google.golang.org/protobuf/proto"
 )
 
-type UserHandler struct {
-	conn PacketConnection
+type steamUserHandler struct {
+	conn Connection
 }
 
-func (handler *UserHandler) Register(handlers map[steamlang.EMsg]func(*Packet) error) {
-	handlers[steamlang.EMsg_ClientLogOnResponse] = handler.handleClientLogOnResponse
-	handlers[steamlang.EMsg_ClientLoggedOff] = handler.handleClientLoggedOff
-	handlers[steamlang.EMsg_ClientSessionToken] = handler.handleClientSessionToken
+func NewUserHandler(conn Connection) *steamUserHandler {
+	handler := &steamUserHandler{conn}
+	handler.conn.AddHandler(steamlang.EMsg_ClientLogOnResponse, handler.handleClientLogOnResponse)
+	handler.conn.AddHandler(steamlang.EMsg_ClientLoggedOff, handler.handleClientLoggedOff)
+	handler.conn.AddHandler(steamlang.EMsg_ClientSessionToken, handler.handleClientSessionToken)
+	return handler
 }
 
-func (handler *UserHandler) LogInAnonymously() error {
+func (handler *steamUserHandler) LogInAnonymously() error {
 	audId := steam.NewInstanceSteamId(0, steam.Instance_All, steamlang.EUniverse_Public, steamlang.EAccountType_AnonUser)
 	var encoder = NewProtoPacketEncoder(steamlang.EMsg_ClientLogon)
 	header := encoder.Header.(*ProtoHeader)
@@ -38,7 +40,7 @@ func (handler *UserHandler) LogInAnonymously() error {
 	return handler.conn.SendPacket(packet)
 }
 
-func (handler *UserHandler) handleClientLogOnResponse(packet *Packet) error {
+func (handler *steamUserHandler) handleClientLogOnResponse(packet *Packet) error {
 	if packet.IsProto() {
 		var decoder = &ProtoPacketDecoder[*steampb.CMsgClientLogonResponse]{
 			Body: new(steampb.CMsgClientLogonResponse),
@@ -46,7 +48,7 @@ func (handler *UserHandler) handleClientLogOnResponse(packet *Packet) error {
 		if err := decoder.Decode(packet); err != nil {
 			return err
 		}
-		log.Println("Login Result (Proto):", decoder.Body.GetEresult())
+		log.Println("Login Result (Proto):", decoder.Body)
 	} else {
 		var decoder = &PacketDecoder[*MsgClientLogOnResponse]{
 			Body: new(MsgClientLogOnResponse),
@@ -59,7 +61,7 @@ func (handler *UserHandler) handleClientLogOnResponse(packet *Packet) error {
 	return nil
 }
 
-func (handler *UserHandler) handleClientLoggedOff(packet *Packet) error {
+func (handler *steamUserHandler) handleClientLoggedOff(packet *Packet) error {
 	if packet.IsProto() {
 		var decoder = &ProtoPacketDecoder[*steampb.CMsgClientLoggedOff]{
 			Body: new(steampb.CMsgClientLoggedOff),
@@ -80,7 +82,7 @@ func (handler *UserHandler) handleClientLoggedOff(packet *Packet) error {
 	return nil
 }
 
-func (handler *UserHandler) handleClientSessionToken(packet *Packet) error {
+func (handler *steamUserHandler) handleClientSessionToken(packet *Packet) error {
 	var decoder = &ProtoPacketDecoder[*steampb.CMsgClientSessionToken]{
 		Body: new(steampb.CMsgClientSessionToken),
 	}

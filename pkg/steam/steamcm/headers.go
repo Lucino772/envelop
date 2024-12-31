@@ -4,6 +4,7 @@ import (
 	"encoding/binary"
 	"io"
 
+	"github.com/Lucino772/envelop/pkg/steam"
 	"github.com/Lucino772/envelop/pkg/steam/steamlang"
 	"github.com/Lucino772/envelop/pkg/steam/steampb"
 	"google.golang.org/protobuf/proto"
@@ -16,6 +17,11 @@ type PacketHeader interface {
 	GetMsgType() steamlang.EMsg
 	GetTargetJobId() uint64
 	GetSourceJobId() uint64
+
+	GetSteamId() *steam.SteamId
+	GetSessionId() *int32
+	SetSteamId(*steam.SteamId)
+	SetSessionId(*int32)
 }
 
 type StdHeader struct {
@@ -35,6 +41,18 @@ func (h *StdHeader) GetTargetJobId() uint64 {
 func (h *StdHeader) GetSourceJobId() uint64 {
 	return h.SourceJobId
 }
+
+func (h *StdHeader) GetSteamId() *steam.SteamId {
+	return nil
+}
+
+func (h *StdHeader) GetSessionId() *int32 {
+	return nil
+}
+
+func (h *StdHeader) SetSteamId(id *steam.SteamId) {}
+
+func (h *StdHeader) SetSessionId(id *int32) {}
 
 func (h *StdHeader) ReadFrom(r io.Reader) (int64, error) {
 	if err := binary.Read(r, binary.LittleEndian, h); err != nil {
@@ -74,6 +92,21 @@ func (h *ExtHeader) GetSourceJobId() uint64 {
 	return h.SourceJobId
 }
 
+func (h *ExtHeader) GetSteamId() *steam.SteamId {
+	return (*steam.SteamId)(&h.SteamId)
+}
+
+func (h *ExtHeader) GetSessionId() *int32 {
+	return &h.SessionId
+}
+
+func (h *ExtHeader) SetSteamId(id *steam.SteamId) {
+	h.SteamId = uint64(*id)
+}
+func (h *ExtHeader) SetSessionId(id *int32) {
+	h.SessionId = int32(*id)
+}
+
 func (h *ExtHeader) ReadFrom(r io.Reader) (int64, error) {
 	if err := binary.Read(r, binary.LittleEndian, h); err != nil {
 		return -1, err
@@ -105,6 +138,21 @@ func (h *ProtoHeader) GetTargetJobId() uint64 {
 
 func (h *ProtoHeader) GetSourceJobId() uint64 {
 	return h.Proto.GetJobidSource()
+}
+
+func (h *ProtoHeader) GetSteamId() *steam.SteamId {
+	return (*steam.SteamId)(h.Proto.Steamid)
+}
+
+func (h *ProtoHeader) GetSessionId() *int32 {
+	return h.Proto.ClientSessionid
+}
+
+func (h *ProtoHeader) SetSteamId(id *steam.SteamId) {
+	h.Proto.Steamid = (*uint64)(id)
+}
+func (h *ProtoHeader) SetSessionId(id *int32) {
+	h.Proto.ClientSessionid = id
 }
 
 func (h *ProtoHeader) ReadFrom(r io.Reader) (int64, error) {

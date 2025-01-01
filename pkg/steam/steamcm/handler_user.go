@@ -2,6 +2,8 @@ package steamcm
 
 import (
 	"log"
+	"math"
+	"time"
 
 	"github.com/Lucino772/envelop/pkg/steam"
 	"github.com/Lucino772/envelop/pkg/steam/steamlang"
@@ -9,24 +11,24 @@ import (
 	"google.golang.org/protobuf/proto"
 )
 
-type steamUserHandler struct {
-	conn Connection
+type steamUserHandler struct{}
+
+func NewUserHandler() *steamUserHandler {
+	return &steamUserHandler{}
 }
 
-func NewUserHandler(conn Connection) *steamUserHandler {
-	handler := &steamUserHandler{conn}
-	handler.conn.AddHandler(steamlang.EMsg_ClientLogOnResponse, handler.handleClientLogOnResponse)
-	handler.conn.AddHandler(steamlang.EMsg_ClientLoggedOff, handler.handleClientLoggedOff)
-	handler.conn.AddHandler(steamlang.EMsg_ClientSessionToken, handler.handleClientSessionToken)
-	return handler
+func (handler *steamUserHandler) Register(handlers map[steamlang.EMsg]func(*Packet) ([]Event, error)) {
+	handlers[steamlang.EMsg_ClientLogOnResponse] = handler.handleClientLogOnresponse
+	handlers[steamlang.EMsg_ClientSessionToken] = handler.handleClientSessionToken
 }
 
-func (handler *steamUserHandler) LogInAnonymously() error {
+func (handler *steamUserHandler) LogInAnonymously(conn Connection) (*steampb.CMsgClientLogonResponse, error) {
 	audId := steam.NewInstanceSteamId(0, steam.Instance_All, steamlang.EUniverse_Public, steamlang.EAccountType_AnonUser)
 	var encoder = NewProtoPacketEncoder(steamlang.EMsg_ClientLogon)
 	header := encoder.Header.(*ProtoHeader)
 	header.Proto.ClientSessionid = proto.Int32(0)
 	header.Proto.Steamid = proto.Uint64(uint64(audId))
+
 	encoder.Body = &steampb.CMsgClientLogon{
 		ProtocolVersion: proto.Uint32(65580),
 		ClientOsType:    proto.Uint32(20),
@@ -35,60 +37,41 @@ func (handler *steamUserHandler) LogInAnonymously() error {
 	}
 	packet, err := encoder.Encode()
 	if err != nil {
-		return err
+		return nil, err
 	}
-	return handler.conn.SendPacket(packet)
+	if err := conn.SendPacket(packet); err != nil {
+		return nil, err
+	}
+
+	return waitForJob[*steampb.CMsgClientLogonResponse](conn, math.MaxUint64, time.Second*30)
 }
 
-func (handler *steamUserHandler) handleClientLogOnResponse(packet *Packet) error {
-	if packet.IsProto() {
-		var decoder = &ProtoPacketDecoder[*steampb.CMsgClientLogonResponse]{
-			Body: new(steampb.CMsgClientLogonResponse),
-		}
-		if err := decoder.Decode(packet); err != nil {
-			return err
-		}
-		log.Println("Login Result (Proto):", decoder.Body)
-	} else {
-		var decoder = &PacketDecoder[*MsgClientLogOnResponse]{
-			Body: new(MsgClientLogOnResponse),
-		}
-		if err := decoder.Decode(packet); err != nil {
-			return err
-		}
-		log.Println("Login Result:", decoder.Body.Result)
+func (handler *steamUserHandler) handleClientLogOnresponse(packet *Packet) ([]Event, error) {
+	if !packet.IsProto() {
+		return nil, nil
 	}
-	return nil
+
+	var decoder = &ProtoPacketDecoder[*steampb.CMsgClientLogonResponse]{
+		Body: new(steampb.CMsgClientLogonResponse),
+	}
+	if err := decoder.Decode(packet); err != nil {
+		return nil, err
+	}
+	return []Event{
+		MakeEvent(EventType_State, EventCallback{
+			JobId:   steam.JobId(packet.header.GetTargetJobId()),
+			Payload: decoder.Body,
+		}),
+	}, nil
 }
 
-func (handler *steamUserHandler) handleClientLoggedOff(packet *Packet) error {
-	if packet.IsProto() {
-		var decoder = &ProtoPacketDecoder[*steampb.CMsgClientLoggedOff]{
-			Body: new(steampb.CMsgClientLoggedOff),
-		}
-		if err := decoder.Decode(packet); err != nil {
-			return err
-		}
-		log.Println("Logged Off Result (Proto):", decoder.Body.GetEresult())
-	} else {
-		var decoder = &PacketDecoder[*MsgClientLoggedOff]{
-			Body: new(MsgClientLoggedOff),
-		}
-		if err := decoder.Decode(packet); err != nil {
-			return err
-		}
-		log.Println("Logged Off Result:", decoder.Body.Result)
-	}
-	return nil
-}
-
-func (handler *steamUserHandler) handleClientSessionToken(packet *Packet) error {
+func (handler *steamUserHandler) handleClientSessionToken(packet *Packet) ([]Event, error) {
 	var decoder = &ProtoPacketDecoder[*steampb.CMsgClientSessionToken]{
 		Body: new(steampb.CMsgClientSessionToken),
 	}
 	if err := decoder.Decode(packet); err != nil {
-		return err
+		return nil, err
 	}
 	log.Println("Session Token:", decoder.Body)
-	return nil
+	return nil, nil
 }

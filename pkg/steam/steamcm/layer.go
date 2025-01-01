@@ -1,5 +1,7 @@
 package steamcm
 
+import "github.com/Lucino772/envelop/pkg/steam"
+
 type EventType = uint
 
 const (
@@ -36,8 +38,10 @@ type EventPacketTosend struct {
 	Packet *Packet
 }
 
-type EventLogOnSuccess struct{}
-type EventLogOnError struct{}
+type EventCallback struct {
+	JobId   steam.JobId
+	Payload any
+}
 
 type Layer interface {
 	ProcessIncoming([]Event) ([]Event, error)

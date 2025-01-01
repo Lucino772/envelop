@@ -4,43 +4,51 @@ import (
 	"bytes"
 	"log"
 	"sync"
+	"sync/atomic"
+	"time"
 
 	"github.com/Lucino772/envelop/pkg/steam"
-	"github.com/Lucino772/envelop/pkg/steam/steamlang"
 )
 
 type Connection interface {
-	HandlePacket(*Packet) error
 	SendPacket(*Packet) error
-	AddHandler(steamlang.EMsg, func(*Packet) error)
+	GetNextJobId() steam.JobId
+	RegisterJob(steam.JobId, func(any))
 }
 
 type SteamConnection struct {
 	layer      Layer
-	handlers   map[steamlang.EMsg]func(*Packet) error
 	mu         sync.Mutex
 	cond       *sync.Cond
 	dataToSend bytes.Buffer
+	startTime  time.Time
 
-	steamId   *steam.SteamId
-	sessionId *int32
+	jobIdSequence atomic.Uint32
+	jobs          map[steam.JobId]func(any)
 }
 
 func NewSteamConnection(layer Layer) *SteamConnection {
 	conn := &SteamConnection{
-		layer:    layer,
-		handlers: make(map[steamlang.EMsg]func(*Packet) error),
+		layer:     layer,
+		startTime: time.Now(),
+		jobs:      make(map[steam.JobId]func(any)),
 	}
 	conn.cond = sync.NewCond(&conn.mu)
 	return conn
 }
 
-func (conn *SteamConnection) SetSteamId(id *steam.SteamId) {
-	conn.steamId = id
+func (conn *SteamConnection) GetNextJobId() steam.JobId {
+	conn.jobIdSequence.Add(1)
+	var jobId steam.JobId = 0
+	jobId.SetBoxId(0)
+	jobId.SetProcessId(0)
+	jobId.SetSequentialCount(conn.jobIdSequence.Load())
+	jobId.SetStartTime(conn.startTime)
+	return jobId
 }
 
-func (conn *SteamConnection) SetSessionId(id *int32) {
-	conn.sessionId = id
+func (conn *SteamConnection) RegisterJob(jobId steam.JobId, callback func(any)) {
+	conn.jobs[jobId] = callback
 }
 
 func (conn *SteamConnection) ProcessBytes(data []byte) error {
@@ -67,10 +75,6 @@ func (conn *SteamConnection) Read(data []byte) (int, error) {
 	return conn.dataToSend.Read(data)
 }
 
-func (conn *SteamConnection) AddHandler(msg steamlang.EMsg, handler func(*Packet) error) {
-	conn.handlers[msg] = handler
-}
-
 func (conn *SteamConnection) SendPacket(packet *Packet) error {
 	events, err := conn.layer.ProcessOutgoing([]Event{
 		MakeEvent(EventType_Outgoing, EventPacketTosend{Packet: packet}),
@@ -86,17 +90,10 @@ func (conn *SteamConnection) SendPacket(packet *Packet) error {
 	return nil
 }
 
-func (conn *SteamConnection) HandlePacket(packet *Packet) error {
-	if handler, ok := conn.handlers[packet.MsgType()]; ok {
-		return handler(packet)
-	}
-	return nil
-}
-
 func (conn *SteamConnection) handleEvent(event Event) error {
 	switch ev := event.Payload.(type) {
 	case EventPacketReceived:
-		return conn.HandlePacket(ev.Packet)
+		log.Println("Following packet was not handled:", ev.Packet.MsgType())
 	case EventDataToSend:
 		if _, err := conn.dataToSend.Write(ev.Data); err != nil {
 			return err
@@ -104,10 +101,10 @@ func (conn *SteamConnection) handleEvent(event Event) error {
 		conn.cond.Signal()
 	case EventChannelEncrypted:
 		log.Println("Channel successfully encrypted !")
-	case EventLogOnSuccess:
-		log.Println("Successfully logged-on !")
-	case EventLogOnError:
-		log.Println("Failed to log-in !")
+	case EventCallback:
+		if callback, ok := conn.jobs[ev.JobId]; ok {
+			callback(ev.Payload)
+		}
 	}
 	return nil
 }

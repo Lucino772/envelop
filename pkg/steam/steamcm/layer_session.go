@@ -83,17 +83,9 @@ func (layer *sessionLayer) handleIncomingPacket(packet *Packet) ([]Event, error)
 			return nil, err
 		}
 		if decoder.Body.GetEresult() == int32(steamlang.EResult_OK) {
-			events = append(
-				events,
-				MakeEvent(EventType_State, EventLogOnSuccess{}),
-			)
 			layer.steamId = packet.header.GetSteamId()
 			layer.sessionId = packet.Header().GetSessionId()
 		} else {
-			events = append(
-				events,
-				MakeEvent(EventType_State, EventLogOnError{}),
-			)
 			layer.steamId = nil
 			layer.sessionId = nil
 		}
@@ -109,11 +101,11 @@ func (layer *sessionLayer) handleIncomingPacket(packet *Packet) ([]Event, error)
 		if err := decoder.Decode(packet); err != nil {
 			return nil, err
 		}
-	default:
-		events = append(
-			events,
-			MakeEvent(EventType_Incoming, EventPacketReceived{Packet: packet}),
-		)
 	}
+
+	events = append(
+		events,
+		MakeEvent(EventType_Incoming, EventPacketReceived{Packet: packet}),
+	)
 	return events, nil
 }

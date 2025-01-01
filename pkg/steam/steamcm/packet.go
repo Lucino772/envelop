@@ -77,11 +77,13 @@ type PacketDecoder[Body_T io.ReaderFrom] struct {
 }
 
 func (decoder *PacketDecoder[T]) Decode(packet *Packet) error {
-	_, err := decoder.Body.ReadFrom(packet.buf)
+	tempBuf := bytes.NewBuffer(packet.buf.Bytes())
+
+	_, err := decoder.Body.ReadFrom(tempBuf)
 	if err != nil {
 		return err
 	}
-	data, err := io.ReadAll(packet.buf)
+	data, err := io.ReadAll(tempBuf)
 	if err != nil {
 		return err
 	}
@@ -94,11 +96,7 @@ type ProtoPacketDecoder[Body_T proto.Message] struct {
 }
 
 func (decoder *ProtoPacketDecoder[T]) Decode(packet *Packet) error {
-	data, err := io.ReadAll(packet.buf)
-	if err != nil {
-		return err
-	}
-	return proto.Unmarshal(data, decoder.Body)
+	return proto.Unmarshal(packet.buf.Bytes(), decoder.Body)
 }
 
 type PacketEncoder struct {

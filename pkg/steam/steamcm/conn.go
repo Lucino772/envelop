@@ -1,6 +1,7 @@
 package steamcm
 
 import (
+	"context"
 	"fmt"
 	"io"
 	"log"
@@ -27,6 +28,7 @@ type SteamConnection struct {
 	jobs          map[steam.JobId]func(any)
 	queuedEvents  chan Event
 	errg          *errgroup.Group
+	readyChan     chan struct{}
 }
 
 func NewSteamConnection(handlers ...Handler) *SteamConnection {
@@ -43,6 +45,7 @@ func NewSteamConnection(handlers ...Handler) *SteamConnection {
 		queuedEvents: make(chan Event),
 		errg:         new(errgroup.Group),
 		dataToSend:   NewBuffer(),
+		readyChan:    make(chan struct{}),
 	}
 	return conn
 }
@@ -78,6 +81,15 @@ func (conn *SteamConnection) RegisterJob(jobId steam.JobId, callback func(any)) 
 func (conn *SteamConnection) SendPacket(packet *Packet) error {
 	conn.queuedEvents <- MakeEvent(EventType_Outgoing, EventPacketTosend{Packet: packet})
 	return nil
+}
+
+func (conn *SteamConnection) WaitReady(timeout time.Duration) error {
+	select {
+	case <-conn.readyChan:
+		return nil
+	case <-time.After(timeout):
+		return context.DeadlineExceeded
+	}
 }
 
 func (conn *SteamConnection) netLoop(transportConn net.Conn) error {
@@ -156,7 +168,7 @@ func (conn *SteamConnection) handleEvents(events []Event) error {
 		case EventPacketReceived:
 			log.Println("Following packet was not handled:", payload.Packet.MsgType())
 		case EventChannelEncrypted:
-			log.Println("Channel successfully encrypted !")
+			close(conn.readyChan)
 		case EventCallback:
 			if callback, ok := conn.jobs[payload.JobId]; ok {
 				callback(payload.Payload)

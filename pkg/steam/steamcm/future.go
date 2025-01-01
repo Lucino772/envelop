@@ -1,15 +1,12 @@
 package steamcm
 
 import (
+	"context"
 	"errors"
 	"sync"
 	"time"
 
 	"github.com/Lucino772/envelop/pkg/steam"
-)
-
-var (
-	ErrFutureTimeout = errors.New("future timeout")
 )
 
 func waitForJob[T any](conn Connection, jobId steam.JobId, timeout time.Duration) (T, error) {
@@ -65,6 +62,6 @@ func (fut *future[T]) Wait(timeout time.Duration) (T, error) {
 	case <-fut.resultChan:
 		return fut.result, fut.err
 	case <-time.After(timeout):
-		return fut.result, ErrFutureTimeout
+		return fut.result, context.DeadlineExceeded
 	}
 }

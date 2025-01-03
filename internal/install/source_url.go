@@ -29,7 +29,7 @@ func (s *UrlSource) GetExports() map[string]any {
 	return parseExports(s.Exports, data)
 }
 
-func (s *UrlSource) IterTasks(yield func(*download.Downloader) bool) {
+func (s *UrlSource) IterDownloaders(yield func(Downloader) bool) {
 	downloader := download.NewDownloader(s.Url, s.Destination)
 	if !yield(downloader) {
 		return

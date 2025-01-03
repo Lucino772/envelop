@@ -1,11 +1,11 @@
 package install
 
 import (
+	"context"
 	"errors"
 	"strings"
 	"text/template"
 
-	"github.com/Lucino772/envelop/pkg/download"
 	"github.com/mitchellh/mapstructure"
 	"golang.org/x/text/cases"
 	"golang.org/x/text/language"
@@ -16,10 +16,14 @@ var (
 	ErrUnknownSourceType = errors.New("unknown source type")
 )
 
+type Downloader interface {
+	Download(context.Context) error
+}
+
 type Source interface {
 	GetExports() map[string]any
 	WithInstallDir(dir string) Source
-	IterTasks(yield func(*download.Downloader) bool)
+	IterDownloaders(yield func(Downloader) bool)
 }
 
 func decodeSource(data map[string]any) (Source, error) {

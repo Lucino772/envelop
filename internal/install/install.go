@@ -12,9 +12,9 @@ import (
 	"text/template"
 
 	"github.com/Lucino772/envelop/pkg/download"
+	"github.com/alitto/pond/v2"
 	"github.com/mitchellh/mapstructure"
 	"github.com/xeipuuv/gojsonschema"
-	"golang.org/x/sync/errgroup"
 )
 
 var ErrManifestNotExists = errors.New("manifest does not exists")
@@ -115,25 +115,27 @@ func (i *Installer) Install(ctx context.Context, m *Manifest, directory string) 
 	m = m.WithInstallDir(directory)
 	exports := make(map[string]any, 0)
 
-	errg, newCtx := errgroup.WithContext(ctx)
-	errg.SetLimit(10)
+	pool := pond.NewPool(10, pond.WithContext(ctx))
+	group := pool.NewGroup()
 	for _, source := range m.Sources {
 		if ctx.Err() != nil {
 			break
 		}
 
-		source.IterTasks(func(d *download.Downloader) bool {
-			errg.Go(func() error {
-				return d.Download(newCtx)
+		source.IterDownloaders(func(d Downloader) bool {
+			group.SubmitErr(func() error {
+				return d.Download(ctx)
 			})
-			return newCtx.Err() == nil
+			return ctx.Err() == nil
 		})
 
 		for key, val := range source.GetExports() {
 			exports[key] = val
 		}
 	}
-	if err := errg.Wait(); err != nil {
+	err := group.Wait()
+	pool.StopAndWait()
+	if err != nil {
 		return err
 	}
 

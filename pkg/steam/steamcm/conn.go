@@ -6,6 +6,7 @@ import (
 	"io"
 	"log"
 	"net"
+	"sync"
 	"sync/atomic"
 	"time"
 
@@ -26,6 +27,7 @@ type SteamConnection struct {
 	startTime     time.Time
 	jobIdSequence atomic.Uint32
 	jobs          map[steam.JobId]func(any)
+	jobsLock      sync.Mutex
 	queuedEvents  chan Event
 	errg          *errgroup.Group
 	readyChan     chan struct{}
@@ -75,6 +77,8 @@ func (conn *SteamConnection) GetNextJobId() steam.JobId {
 }
 
 func (conn *SteamConnection) RegisterJob(jobId steam.JobId, callback func(any)) {
+	conn.jobsLock.Lock()
+	defer conn.jobsLock.Unlock()
 	conn.jobs[jobId] = callback
 }
 
@@ -97,12 +101,10 @@ func (conn *SteamConnection) netLoop(transportConn net.Conn) error {
 		defer log.Println("client: done reading")
 		for {
 			buff := make([]byte, 1024)
-			log.Println("client: reading...")
 			nr, err := transportConn.Read(buff)
 			if err != nil {
 				return err
 			}
-			log.Println("client: recv data", nr)
 			conn.queuedEvents <- MakeEvent(
 				EventType_Incoming,
 				EventDataReceived{Data: buff[:nr]},
@@ -113,12 +115,10 @@ func (conn *SteamConnection) netLoop(transportConn net.Conn) error {
 		defer log.Println("client: done writing")
 		for {
 			buff := make([]byte, 1024)
-			log.Println("client: waiting for data to send")
 			nr, err := conn.dataToSend.Read(buff)
 			if err != nil {
 				return err
 			}
-			log.Println("client: send data", len(buff[:nr]))
 			if _, err := transportConn.Write(buff[:nr]); err != nil {
 				return err
 			}

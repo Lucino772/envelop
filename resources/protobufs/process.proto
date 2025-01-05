@@ -1,4 +1,5 @@
 syntax = "proto3";
+package envelop;
 
 option go_package = "github.com/Lucino772/envelop/pkg/protobufs";
 

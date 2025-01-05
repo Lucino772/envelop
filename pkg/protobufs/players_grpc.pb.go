@@ -37,7 +37,7 @@ func NewPlayersClient(cc grpc.ClientConnInterface) PlayersClient {
 
 func (c *playersClient) ListPlayers(ctx context.Context, in *emptypb.Empty, opts ...grpc.CallOption) (*PlayerList, error) {
 	out := new(PlayerList)
-	err := c.cc.Invoke(ctx, "/Players/ListPlayers", in, out, opts...)
+	err := c.cc.Invoke(ctx, "/envelop.Players/ListPlayers", in, out, opts...)
 	if err != nil {
 		return nil, err
 	}
@@ -45,7 +45,7 @@ func (c *playersClient) ListPlayers(ctx context.Context, in *emptypb.Empty, opts
 }
 
 func (c *playersClient) StreamPlayers(ctx context.Context, in *emptypb.Empty, opts ...grpc.CallOption) (Players_StreamPlayersClient, error) {
-	stream, err := c.cc.NewStream(ctx, &Players_ServiceDesc.Streams[0], "/Players/StreamPlayers", opts...)
+	stream, err := c.cc.NewStream(ctx, &Players_ServiceDesc.Streams[0], "/envelop.Players/StreamPlayers", opts...)
 	if err != nil {
 		return nil, err
 	}
@@ -118,7 +118,7 @@ func _Players_ListPlayers_Handler(srv interface{}, ctx context.Context, dec func
 	}
 	info := &grpc.UnaryServerInfo{
 		Server:     srv,
-		FullMethod: "/Players/ListPlayers",
+		FullMethod: "/envelop.Players/ListPlayers",
 	}
 	handler := func(ctx context.Context, req interface{}) (interface{}, error) {
 		return srv.(PlayersServer).ListPlayers(ctx, req.(*emptypb.Empty))
@@ -151,7 +151,7 @@ func (x *playersStreamPlayersServer) Send(m *PlayerList) error {
 // It's only intended for direct use with grpc.RegisterService,
 // and not to be introspected or modified (even as a copy)
 var Players_ServiceDesc = grpc.ServiceDesc{
-	ServiceName: "Players",
+	ServiceName: "envelop.Players",
 	HandlerType: (*PlayersServer)(nil),
 	Methods: []grpc.MethodDesc{
 		{

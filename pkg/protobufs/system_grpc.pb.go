@@ -35,7 +35,7 @@ func NewSystemClient(cc grpc.ClientConnInterface) SystemClient {
 }
 
 func (c *systemClient) StreamEvents(ctx context.Context, in *emptypb.Empty, opts ...grpc.CallOption) (System_StreamEventsClient, error) {
-	stream, err := c.cc.NewStream(ctx, &System_ServiceDesc.Streams[0], "/System/StreamEvents", opts...)
+	stream, err := c.cc.NewStream(ctx, &System_ServiceDesc.Streams[0], "/envelop.System/StreamEvents", opts...)
 	if err != nil {
 		return nil, err
 	}
@@ -119,7 +119,7 @@ func (x *systemStreamEventsServer) Send(m *Event) error {
 // It's only intended for direct use with grpc.RegisterService,
 // and not to be introspected or modified (even as a copy)
 var System_ServiceDesc = grpc.ServiceDesc{
-	ServiceName: "System",
+	ServiceName: "envelop.System",
 	HandlerType: (*SystemServer)(nil),
 	Methods:     []grpc.MethodDesc{},
 	Streams: []grpc.StreamDesc{

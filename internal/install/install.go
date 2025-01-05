@@ -15,28 +15,13 @@ import (
 	"github.com/alitto/pond/v2"
 	"github.com/mitchellh/mapstructure"
 	"github.com/xeipuuv/gojsonschema"
+	"golang.org/x/sync/errgroup"
 )
 
 var ErrManifestNotExists = errors.New("manifest does not exists")
 
 //go:embed data/manifest-spec.json
 var manifestSchema string
-
-type Manifest struct {
-	Sources []Source `mapstructure:"sources,omitempty"`
-	Config  string   `mapstructure:"config,omitempty"`
-}
-
-func (m *Manifest) WithInstallDir(dir string) *Manifest {
-	sources := make([]Source, 0)
-	for _, src := range m.Sources {
-		sources = append(sources, src.WithInstallDir(dir))
-	}
-	return &Manifest{
-		Sources: sources,
-		Config:  m.Config,
-	}
-}
 
 type Installer struct {
 	manifestUrl  string
@@ -112,29 +97,36 @@ func (i *Installer) GetManifest(id string) (*Manifest, error) {
 }
 
 func (i *Installer) Install(ctx context.Context, m *Manifest, directory string) error {
-	m = m.WithInstallDir(directory)
+	var dlContext = DownloadContext{InstallDir: directory}
+
 	exports := make(map[string]any, 0)
-
-	pool := pond.NewPool(10, pond.WithContext(ctx))
-	group := pool.NewGroup()
+	metadatas := make([]Metadata, 0)
 	for _, source := range m.Sources {
-		if ctx.Err() != nil {
-			break
+		metadata, err := source.GetMetadata(ctx, dlContext)
+		if err != nil {
+			return err
 		}
-
-		source.IterDownloaders(func(d Downloader) bool {
-			group.SubmitErr(func() error {
-				return d.Download(ctx)
-			})
-			return ctx.Err() == nil
-		})
-
-		for key, val := range source.GetExports() {
-			exports[key] = val
+		if metadata != nil {
+			for key, val := range metadata.GetExports() {
+				exports[key] = val
+			}
+			metadatas = append(metadatas, metadata)
 		}
 	}
-	err := group.Wait()
-	pool.StopAndWait()
+
+	errg, errCtx := errgroup.WithContext(ctx)
+	workerPool := pond.NewPool(10, pond.WithContext(errCtx))
+	for _, metadata := range metadatas {
+		errg.Go(func() error {
+			waiter, err := metadata.Install(errCtx, workerPool)
+			if err != nil {
+				return err
+			}
+			return waiter.Wait()
+		})
+	}
+	err := errg.Wait()
+	workerPool.StopAndWait()
 	if err != nil {
 		return err
 	}

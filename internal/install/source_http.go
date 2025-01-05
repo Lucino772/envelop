@@ -30,7 +30,7 @@ func (s *HttpSource) GetDownloaderOptions() []DownloaderOptFunc {
 	return []DownloaderOptFunc{WithHttpClient()}
 }
 
-func (s *HttpSource) GetMetadata(ctx context.Context, dlCtx DownloadContext, dl *Downloader) (Metadata, error) {
+func (s *HttpSource) GetMetadata(ctx context.Context, dl *Downloader) (Metadata, error) {
 	var (
 		decompressor download.Decompressor
 		checksum     *download.Checksum
@@ -83,7 +83,7 @@ func (s *HttpSource) GetMetadata(ctx context.Context, dlCtx DownloadContext, dl 
 
 	return &HttpSourceMetadata{
 		Url:          s.Url,
-		Destination:  filepath.Join(dlCtx.InstallDir, s.Destination),
+		Destination:  filepath.Join(dl.GetConfig().InstallDir, s.Destination),
 		Exports:      s.Exports,
 		ContentLen:   contentLen,
 		AcceptRanges: acceptRanges,

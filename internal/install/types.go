@@ -6,10 +6,10 @@ import (
 	"github.com/alitto/pond/v2"
 )
 
-type DownloadContext struct {
-	OsName      string
-	OsArch      string
-	OsLang      string
+type DownloadConfig struct {
+	TargetOs    string
+	TargetArch  string
+	TargetLang  string
 	InstallDir  string
 	LowViolence bool
 }
@@ -21,7 +21,7 @@ type Manifest struct {
 
 type Source interface {
 	GetDownloaderOptions() []DownloaderOptFunc
-	GetMetadata(context.Context, DownloadContext, *Downloader) (Metadata, error)
+	GetMetadata(context.Context, *Downloader) (Metadata, error)
 }
 
 type Metadata interface {

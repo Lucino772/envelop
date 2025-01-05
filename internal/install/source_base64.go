@@ -19,14 +19,14 @@ type Base64Source struct {
 
 func (s *Base64Source) GetDownloaderOptions() []DownloaderOptFunc { return nil }
 
-func (s *Base64Source) GetMetadata(ctx context.Context, dlCtx DownloadContext, dl *Downloader) (Metadata, error) {
+func (s *Base64Source) GetMetadata(ctx context.Context, dl *Downloader) (Metadata, error) {
 	content, err := base64.URLEncoding.DecodeString(s.Content)
 	if err != nil {
 		return nil, err
 	}
 	return &Base64SourceMetadata{
 		Content:     content,
-		Destination: filepath.Join(dlCtx.InstallDir, s.Destination),
+		Destination: filepath.Join(dl.GetConfig().InstallDir, s.Destination),
 		Exports:     s.Exports,
 		ContentLen:  int64(len(content)),
 	}, nil

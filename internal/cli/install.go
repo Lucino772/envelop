@@ -66,6 +66,8 @@ func runInstall(opts *installOptions) (err error) {
 	return installer.Install(
 		context.Background(),
 		manifest,
-		opts.Directory,
+		install.DownloadConfig{
+			InstallDir: opts.Directory,
+		},
 	)
 }

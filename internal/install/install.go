@@ -96,10 +96,9 @@ func (i *Installer) GetManifest(id string) (*Manifest, error) {
 	return &manifest, nil
 }
 
-func (i *Installer) Install(ctx context.Context, m *Manifest, directory string) error {
-	var dlContext = DownloadContext{InstallDir: directory}
-
+func (i *Installer) Install(ctx context.Context, m *Manifest, config DownloadConfig) error {
 	var dlOptions []DownloaderOptFunc
+	dlOptions = append(dlOptions, WithDownloadConfig(config))
 	for _, source := range m.Sources {
 		dlOptions = append(dlOptions, source.GetDownloaderOptions()...)
 	}
@@ -108,7 +107,7 @@ func (i *Installer) Install(ctx context.Context, m *Manifest, directory string) 
 	exports := make(map[string]any, 0)
 	metadatas := make([]Metadata, 0)
 	for _, source := range m.Sources {
-		metadata, err := source.GetMetadata(ctx, dlContext, downloader)
+		metadata, err := source.GetMetadata(ctx, downloader)
 		if err != nil {
 			return err
 		}
@@ -138,7 +137,7 @@ func (i *Installer) Install(ctx context.Context, m *Manifest, directory string) 
 	}
 
 	// TODO: Cache config file to improve performance
-	configPath := filepath.Join(directory, "envelop.yaml")
+	configPath := filepath.Join(config.InstallDir, "envelop.yaml")
 	dl := download.NewDownloader(m.Config, configPath)
 	dl.PostDownloadHook = func(dst string) error {
 		content, err := os.ReadFile(dst)

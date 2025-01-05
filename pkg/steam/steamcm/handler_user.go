@@ -11,18 +11,18 @@ import (
 	"google.golang.org/protobuf/proto"
 )
 
-type steamUserHandler struct{}
+type SteamUserHandler struct{}
 
-func NewUserHandler() *steamUserHandler {
-	return &steamUserHandler{}
+func NewUserHandler() *SteamUserHandler {
+	return &SteamUserHandler{}
 }
 
-func (handler *steamUserHandler) Register(handlers map[steamlang.EMsg]func(*Packet) ([]Event, error)) {
+func (handler *SteamUserHandler) Register(handlers map[steamlang.EMsg]func(*Packet) ([]Event, error)) {
 	handlers[steamlang.EMsg_ClientLogOnResponse] = handler.handleClientLogOnresponse
 	handlers[steamlang.EMsg_ClientSessionToken] = handler.handleClientSessionToken
 }
 
-func (handler *steamUserHandler) LogInAnonymously(conn Connection) (*steampb.CMsgClientLogonResponse, error) {
+func (handler *SteamUserHandler) LogInAnonymously(conn Connection) (*steampb.CMsgClientLogonResponse, error) {
 	audId := steam.NewInstanceSteamId(0, steam.Instance_All, steamlang.EUniverse_Public, steamlang.EAccountType_AnonUser)
 	var encoder = NewProtoPacketEncoder(steamlang.EMsg_ClientLogon)
 	header := encoder.Header.(*ProtoHeader)
@@ -46,7 +46,7 @@ func (handler *steamUserHandler) LogInAnonymously(conn Connection) (*steampb.CMs
 	return waitForJob[*steampb.CMsgClientLogonResponse](conn, math.MaxUint64, time.Second*30)
 }
 
-func (handler *steamUserHandler) handleClientLogOnresponse(packet *Packet) ([]Event, error) {
+func (handler *SteamUserHandler) handleClientLogOnresponse(packet *Packet) ([]Event, error) {
 	if !packet.IsProto() {
 		return nil, nil
 	}
@@ -65,7 +65,7 @@ func (handler *steamUserHandler) handleClientLogOnresponse(packet *Packet) ([]Ev
 	}, nil
 }
 
-func (handler *steamUserHandler) handleClientSessionToken(packet *Packet) ([]Event, error) {
+func (handler *SteamUserHandler) handleClientSessionToken(packet *Packet) ([]Event, error) {
 	var decoder = &ProtoPacketDecoder[*steampb.CMsgClientSessionToken]{
 		Body: new(steampb.CMsgClientSessionToken),
 	}

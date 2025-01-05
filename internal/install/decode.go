@@ -22,6 +22,8 @@ func decodeSource(data map[string]any) (Source, error) {
 		return decode(data, &HttpSource{})
 	case "base64":
 		return decode(data, &Base64Source{})
+	case "steam":
+		return decode(data, &SteamSource{})
 	default:
 		return nil, ErrUnknownSourceType
 	}

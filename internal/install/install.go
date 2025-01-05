@@ -103,6 +103,9 @@ func (i *Installer) Install(ctx context.Context, m *Manifest, config DownloadCon
 		dlOptions = append(dlOptions, source.GetDownloaderOptions()...)
 	}
 	downloader := NewDownloader(dlOptions...)
+	if err := downloader.Initialize(); err != nil {
+		return err
+	}
 
 	exports := make(map[string]any, 0)
 	metadatas := make([]Metadata, 0)

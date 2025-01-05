@@ -20,12 +20,13 @@ type Manifest struct {
 }
 
 type Source interface {
-	GetMetadata(context.Context, DownloadContext) (Metadata, error)
+	GetDownloaderOptions() []DownloaderOptFunc
+	GetMetadata(context.Context, DownloadContext, *Downloader) (Metadata, error)
 }
 
 type Metadata interface {
 	GetExports() map[string]any
-	Install(context.Context, pond.Pool) (Waiter, error)
+	Install(context.Context, pond.Pool, *Downloader) (Waiter, error)
 }
 
 type Waiter interface {

@@ -26,13 +26,17 @@ type HttpSource struct {
 	Archive     string         `mapstructure:"archive,omitempty"`
 }
 
-func (s *HttpSource) GetMetadata(ctx context.Context, dlCtx DownloadContext) (Metadata, error) {
+func (s *HttpSource) GetDownloaderOptions() []DownloaderOptFunc {
+	return []DownloaderOptFunc{WithHttpClient()}
+}
+
+func (s *HttpSource) GetMetadata(ctx context.Context, dlCtx DownloadContext, dl *Downloader) (Metadata, error) {
 	var (
 		decompressor download.Decompressor
 		checksum     *download.Checksum
 	)
 
-	contentLen, acceptRanges, err := s.fetchDownloadInfo(ctx)
+	contentLen, acceptRanges, err := s.fetchDownloadInfo(ctx, dl.GetHttpClient())
 	if err != nil {
 		return nil, err
 	}
@@ -88,12 +92,12 @@ func (s *HttpSource) GetMetadata(ctx context.Context, dlCtx DownloadContext) (Me
 	}, nil
 }
 
-func (s *HttpSource) fetchDownloadInfo(ctx context.Context) (int64, bool, error) {
+func (s *HttpSource) fetchDownloadInfo(ctx context.Context, client *http.Client) (int64, bool, error) {
 	request, err := http.NewRequestWithContext(ctx, "HEAD", s.Url, nil)
 	if err != nil {
 		return -1, false, err
 	}
-	response, err := http.DefaultClient.Do(request)
+	response, err := client.Do(request)
 	if err != nil {
 		return -1, false, err
 	}
@@ -123,7 +127,7 @@ func (metadata *HttpSourceMetadata) GetExports() map[string]any {
 	return parseExports(metadata.Exports, data)
 }
 
-func (metadata *HttpSourceMetadata) Install(ctx context.Context, pool pond.Pool) (Waiter, error) {
+func (metadata *HttpSourceMetadata) Install(ctx context.Context, pool pond.Pool, dl *Downloader) (Waiter, error) {
 	group := pool.NewGroupContext(ctx)
 	group.SubmitErr(func() error {
 		var dst string = metadata.Destination
@@ -148,7 +152,7 @@ func (metadata *HttpSourceMetadata) Install(ctx context.Context, pool pond.Pool)
 			return err
 		}
 
-		getter := &download.HttpGetter{}
+		getter := &download.HttpGetter{Client: dl.GetHttpClient()}
 		if err := getter.Get(ctx, parsedurl, dst); err != nil {
 			return err
 		}

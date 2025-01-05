@@ -99,10 +99,16 @@ func (i *Installer) GetManifest(id string) (*Manifest, error) {
 func (i *Installer) Install(ctx context.Context, m *Manifest, directory string) error {
 	var dlContext = DownloadContext{InstallDir: directory}
 
+	var dlOptions []DownloaderOptFunc
+	for _, source := range m.Sources {
+		dlOptions = append(dlOptions, source.GetDownloaderOptions()...)
+	}
+	downloader := NewDownloader(dlOptions...)
+
 	exports := make(map[string]any, 0)
 	metadatas := make([]Metadata, 0)
 	for _, source := range m.Sources {
-		metadata, err := source.GetMetadata(ctx, dlContext)
+		metadata, err := source.GetMetadata(ctx, dlContext, downloader)
 		if err != nil {
 			return err
 		}
@@ -118,7 +124,7 @@ func (i *Installer) Install(ctx context.Context, m *Manifest, directory string) 
 	workerPool := pond.NewPool(10, pond.WithContext(errCtx))
 	for _, metadata := range metadatas {
 		errg.Go(func() error {
-			waiter, err := metadata.Install(errCtx, workerPool)
+			waiter, err := metadata.Install(errCtx, workerPool, downloader)
 			if err != nil {
 				return err
 			}

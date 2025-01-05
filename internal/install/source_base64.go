@@ -17,7 +17,9 @@ type Base64Source struct {
 	Content     string         `mapstructure:"url,omitempty"`
 }
 
-func (s *Base64Source) GetMetadata(ctx context.Context, dlCtx DownloadContext) (Metadata, error) {
+func (s *Base64Source) GetDownloaderOptions() []DownloaderOptFunc { return nil }
+
+func (s *Base64Source) GetMetadata(ctx context.Context, dlCtx DownloadContext, dl *Downloader) (Metadata, error) {
 	content, err := base64.URLEncoding.DecodeString(s.Content)
 	if err != nil {
 		return nil, err
@@ -44,7 +46,7 @@ func (metadata *Base64SourceMetadata) GetExports() map[string]any {
 	return parseExports(metadata.Exports, data)
 }
 
-func (metadata *Base64SourceMetadata) Install(ctx context.Context, pool pond.Pool) (Waiter, error) {
+func (metadata *Base64SourceMetadata) Install(ctx context.Context, pool pond.Pool, dl *Downloader) (Waiter, error) {
 	// TODO: Add decompression in case the data was compressed and then encode to base64
 	// TODO: Add a checksum to validate the data
 

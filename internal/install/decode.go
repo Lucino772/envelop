@@ -18,8 +18,6 @@ func decodeSource(data map[string]any) (Source, error) {
 	}
 
 	switch sType.(string) {
-	case "url":
-		return decode(data, &UrlSource{})
 	case "http":
 		return decode(data, &HttpSource{})
 	case "base64":

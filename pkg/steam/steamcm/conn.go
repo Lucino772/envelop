@@ -10,6 +10,7 @@ import (
 	"sync/atomic"
 	"time"
 
+	"github.com/Lucino772/envelop/internal/utils"
 	"github.com/Lucino772/envelop/pkg/steam"
 	"github.com/Lucino772/envelop/pkg/steam/steamlang"
 	"golang.org/x/sync/errgroup"
@@ -23,7 +24,7 @@ type Connection interface {
 
 type SteamConnection struct {
 	layer         Layer
-	dataToSend    io.ReadWriter
+	dataToSend    io.ReadWriteCloser
 	startTime     time.Time
 	jobIdSequence atomic.Uint32
 	jobs          map[steam.JobId]func(any)
@@ -46,7 +47,7 @@ func NewSteamConnection(handlers ...Handler) *SteamConnection {
 		jobs:         make(map[steam.JobId]func(any)),
 		queuedEvents: make(chan Event),
 		errg:         new(errgroup.Group),
-		dataToSend:   NewBuffer(),
+		dataToSend:   utils.NewBlockingBuffer(),
 		readyChan:    make(chan struct{}),
 	}
 	return conn
@@ -98,7 +99,7 @@ func (conn *SteamConnection) WaitReady(timeout time.Duration) error {
 
 func (conn *SteamConnection) netLoop(transportConn net.Conn) error {
 	conn.errg.Go(func() error {
-		defer log.Println("client: done reading")
+		defer conn.dataToSend.Close()
 		for {
 			buff := make([]byte, 1024)
 			nr, err := transportConn.Read(buff)
@@ -112,7 +113,6 @@ func (conn *SteamConnection) netLoop(transportConn net.Conn) error {
 		}
 	})
 	conn.errg.Go(func() error {
-		defer log.Println("client: done writing")
 		for {
 			buff := make([]byte, 1024)
 			nr, err := conn.dataToSend.Read(buff)
@@ -125,7 +125,6 @@ func (conn *SteamConnection) netLoop(transportConn net.Conn) error {
 		}
 	})
 	conn.errg.Go(func() error {
-		defer log.Println("client: done processing")
 		for event := range conn.queuedEvents {
 			err := conn.processEvent(event)
 			if err != nil {

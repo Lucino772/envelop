@@ -1,12 +1,15 @@
 package steamcm
 
-import "github.com/Lucino772/envelop/pkg/steam/steamlang"
+import (
+	"github.com/Lucino772/envelop/pkg/steam/steamlang"
+	"github.com/Lucino772/envelop/pkg/steam/steammsg"
+)
 
 type dispatchLayer struct {
-	dispatchMap map[steamlang.EMsg]func(*Packet) ([]Event, error)
+	dispatchMap map[steamlang.EMsg]func(*steammsg.Packet) ([]Event, error)
 }
 
-func NewDispatchLayer(dispatchMap map[steamlang.EMsg]func(*Packet) ([]Event, error)) *dispatchLayer {
+func NewDispatchLayer(dispatchMap map[steamlang.EMsg]func(*steammsg.Packet) ([]Event, error)) *dispatchLayer {
 	return &dispatchLayer{dispatchMap: dispatchMap}
 }
 

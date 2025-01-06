@@ -9,6 +9,7 @@ import (
 
 	"github.com/Lucino772/envelop/pkg/steam"
 	"github.com/Lucino772/envelop/pkg/steam/steamlang"
+	"github.com/Lucino772/envelop/pkg/steam/steammsg"
 )
 
 const (
@@ -94,7 +95,7 @@ func (layer *encryptedLayer) handleIncomingData(data []byte) ([]Event, error) {
 		}, nil
 	}
 
-	packet, err := ParsePacket(data)
+	packet, err := steammsg.ParsePacket(data)
 	if err != nil {
 		return nil, err
 	}
@@ -109,9 +110,9 @@ func (layer *encryptedLayer) handleIncomingData(data []byte) ([]Event, error) {
 	}
 }
 
-func (layer *encryptedLayer) handleEncryptRequest(packet *Packet) ([]Event, error) {
-	var decoder = &PacketDecoder[*MsgChannelEncryptRequest]{
-		Body: new(MsgChannelEncryptRequest),
+func (layer *encryptedLayer) handleEncryptRequest(packet *steammsg.Packet) ([]Event, error) {
+	var decoder = &steammsg.PacketDecoder[*steammsg.MsgChannelEncryptRequest]{
+		Body: new(steammsg.MsgChannelEncryptRequest),
 	}
 	if err := decoder.Decode(packet); err != nil {
 		return nil, err
@@ -163,9 +164,9 @@ func (layer *encryptedLayer) handleEncryptRequest(packet *Packet) ([]Event, erro
 	}, nil
 }
 
-func (layer *encryptedLayer) buildEncryptResponse(version uint32, challengeData []byte, crc uint32) (*Packet, error) {
-	encoder := NewPacketEncoder(steamlang.EMsg_ChannelEncryptResponse)
-	encoder.Body = &MsgChannelEncryptResponse{
+func (layer *encryptedLayer) buildEncryptResponse(version uint32, challengeData []byte, crc uint32) (*steammsg.Packet, error) {
+	encoder := steammsg.NewPacketEncoder(steamlang.EMsg_ChannelEncryptResponse)
+	encoder.Body = &steammsg.MsgChannelEncryptResponse{
 		ProtoVersion: version,
 		KeySize:      128,
 	}
@@ -181,9 +182,9 @@ func (layer *encryptedLayer) buildEncryptResponse(version uint32, challengeData 
 	return encoder.Encode()
 }
 
-func (layer *encryptedLayer) handleEncryptResult(packet *Packet) ([]Event, error) {
-	var decoder = &PacketDecoder[*MsgChannelEncryptResult]{
-		Body: new(MsgChannelEncryptResult),
+func (layer *encryptedLayer) handleEncryptResult(packet *steammsg.Packet) ([]Event, error) {
+	var decoder = &steammsg.PacketDecoder[*steammsg.MsgChannelEncryptResult]{
+		Body: new(steammsg.MsgChannelEncryptResult),
 	}
 	if err := decoder.Decode(packet); err != nil {
 		return nil, err

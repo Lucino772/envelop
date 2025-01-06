@@ -13,11 +13,12 @@ import (
 	"github.com/Lucino772/envelop/internal/utils"
 	"github.com/Lucino772/envelop/pkg/steam"
 	"github.com/Lucino772/envelop/pkg/steam/steamlang"
+	"github.com/Lucino772/envelop/pkg/steam/steammsg"
 	"golang.org/x/sync/errgroup"
 )
 
 type Connection interface {
-	SendPacket(*Packet) error
+	SendPacket(*steammsg.Packet) error
 	GetNextJobId() steam.JobId
 	RegisterJob(steam.JobId, func(any))
 }
@@ -83,7 +84,7 @@ func (conn *SteamConnection) RegisterJob(jobId steam.JobId, callback func(any)) 
 	conn.jobs[jobId] = callback
 }
 
-func (conn *SteamConnection) SendPacket(packet *Packet) error {
+func (conn *SteamConnection) SendPacket(packet *steammsg.Packet) error {
 	conn.queuedEvents <- MakeEvent(EventType_Outgoing, EventPacketTosend{Packet: packet})
 	return nil
 }

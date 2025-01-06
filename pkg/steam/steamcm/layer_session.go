@@ -3,6 +3,7 @@ package steamcm
 import (
 	"github.com/Lucino772/envelop/pkg/steam"
 	"github.com/Lucino772/envelop/pkg/steam/steamlang"
+	"github.com/Lucino772/envelop/pkg/steam/steammsg"
 	"github.com/Lucino772/envelop/pkg/steam/steampb"
 )
 
@@ -68,7 +69,7 @@ func (layer *sessionLayer) ProcessOutgoing(events []Event) ([]Event, error) {
 	return processedEvents, nil
 }
 
-func (layer *sessionLayer) handleIncomingPacket(packet *Packet) ([]Event, error) {
+func (layer *sessionLayer) handleIncomingPacket(packet *steammsg.Packet) ([]Event, error) {
 	events := make([]Event, 0)
 
 	switch packet.MsgType() {
@@ -76,14 +77,14 @@ func (layer *sessionLayer) handleIncomingPacket(packet *Packet) ([]Event, error)
 		if !packet.IsProto() {
 			return nil, nil
 		}
-		var decoder = &ProtoPacketDecoder[*steampb.CMsgClientLogonResponse]{
+		var decoder = &steammsg.ProtoPacketDecoder[*steampb.CMsgClientLogonResponse]{
 			Body: new(steampb.CMsgClientLogonResponse),
 		}
 		if err := decoder.Decode(packet); err != nil {
 			return nil, err
 		}
 		if decoder.Body.GetEresult() == int32(steamlang.EResult_OK) {
-			layer.steamId = packet.header.GetSteamId()
+			layer.steamId = packet.Header().GetSteamId()
 			layer.sessionId = packet.Header().GetSessionId()
 		} else {
 			layer.steamId = nil
@@ -95,7 +96,7 @@ func (layer *sessionLayer) handleIncomingPacket(packet *Packet) ([]Event, error)
 		if !packet.IsProto() {
 			return nil, nil
 		}
-		var decoder = &ProtoPacketDecoder[*steampb.CMsgClientLoggedOff]{
+		var decoder = &steammsg.ProtoPacketDecoder[*steampb.CMsgClientLoggedOff]{
 			Body: new(steampb.CMsgClientLoggedOff),
 		}
 		if err := decoder.Decode(packet); err != nil {

@@ -5,6 +5,7 @@ import (
 
 	"github.com/Lucino772/envelop/pkg/steam"
 	"github.com/Lucino772/envelop/pkg/steam/steamlang"
+	"github.com/Lucino772/envelop/pkg/steam/steammsg"
 	"github.com/Lucino772/envelop/pkg/steam/steampb"
 	"google.golang.org/protobuf/proto"
 )
@@ -20,7 +21,7 @@ func NewAppsHandler() *SteamAppsHandler {
 	return &SteamAppsHandler{}
 }
 
-func (handler *SteamAppsHandler) Register(handlers map[steamlang.EMsg]func(*Packet) ([]Event, error)) {
+func (handler *SteamAppsHandler) Register(handlers map[steamlang.EMsg]func(*steammsg.Packet) ([]Event, error)) {
 	handlers[steamlang.EMsg_ClientPICSProductInfoResponse] = handler.handlePICSProductInfoResponse
 	handlers[steamlang.EMsg_ClientPICSAccessTokenResponse] = handler.handlePICSGetAccessTokensResponse
 	handlers[steamlang.EMsg_ClientRequestFreeLicenseResponse] = handler.handleFreeLicenseResponse
@@ -31,8 +32,8 @@ func (handler *SteamAppsHandler) Register(handlers map[steamlang.EMsg]func(*Pack
 func (handler *SteamAppsHandler) PICSGetAccessTokens(conn Connection, apps []PICSRequest, packages []PICSRequest) (*steampb.CMsgClientPICSAccessTokenResponse, error) {
 	jobId := conn.GetNextJobId()
 
-	var encoder = NewProtoPacketEncoder(steamlang.EMsg_ClientPICSAccessTokenRequest)
-	header := encoder.Header.(*ProtoHeader)
+	var encoder = steammsg.NewProtoPacketEncoder(steamlang.EMsg_ClientPICSAccessTokenRequest)
+	header := encoder.Header.(*steammsg.ProtoHeader)
 	header.Proto.JobidSource = proto.Uint64(uint64(jobId))
 	var body = &steampb.CMsgClientPICSAccessTokenRequest{}
 
@@ -57,8 +58,8 @@ func (handler *SteamAppsHandler) PICSGetAccessTokens(conn Connection, apps []PIC
 func (handler *SteamAppsHandler) PICSGetProductInfo(conn Connection, apps []PICSRequest, packages []PICSRequest, onlyMetaData bool) (*steampb.CMsgClientPICSProductInfoResponse, error) {
 	jobId := conn.GetNextJobId()
 
-	var encoder = NewProtoPacketEncoder(steamlang.EMsg_ClientPICSProductInfoRequest)
-	header := encoder.Header.(*ProtoHeader)
+	var encoder = steammsg.NewProtoPacketEncoder(steamlang.EMsg_ClientPICSProductInfoRequest)
+	header := encoder.Header.(*steammsg.ProtoHeader)
 	header.Proto.JobidSource = proto.Uint64(uint64(jobId))
 
 	var body = &steampb.CMsgClientPICSProductInfoRequest{}
@@ -93,8 +94,8 @@ func (handler *SteamAppsHandler) PICSGetProductInfo(conn Connection, apps []PICS
 func (handler *SteamAppsHandler) RequestFreeLicense(conn Connection, appIds []uint32) (*steampb.CMsgClientRequestFreeLicenseResponse, error) {
 	jobId := conn.GetNextJobId()
 
-	var encoder = NewProtoPacketEncoder(steamlang.EMsg_ClientRequestFreeLicense)
-	header := encoder.Header.(*ProtoHeader)
+	var encoder = steammsg.NewProtoPacketEncoder(steamlang.EMsg_ClientRequestFreeLicense)
+	header := encoder.Header.(*steammsg.ProtoHeader)
 	header.Proto.JobidSource = proto.Uint64(uint64(jobId))
 	encoder.Body = &steampb.CMsgClientRequestFreeLicense{
 		Appids: appIds,
@@ -112,8 +113,8 @@ func (handler *SteamAppsHandler) RequestFreeLicense(conn Connection, appIds []ui
 func (handler *SteamAppsHandler) GetDepotDecryptionKey(conn Connection, depotId uint32, appId uint32) (*steampb.CMsgClientGetDepotDecryptionKeyResponse, error) {
 	jobId := conn.GetNextJobId()
 
-	var encoder = NewProtoPacketEncoder(steamlang.EMsg_ClientGetDepotDecryptionKey)
-	header := encoder.Header.(*ProtoHeader)
+	var encoder = steammsg.NewProtoPacketEncoder(steamlang.EMsg_ClientGetDepotDecryptionKey)
+	header := encoder.Header.(*steammsg.ProtoHeader)
 	header.Proto.JobidSource = proto.Uint64(uint64(jobId))
 	encoder.Body = &steampb.CMsgClientGetDepotDecryptionKey{
 		DepotId: proto.Uint32(depotId),
@@ -132,8 +133,8 @@ func (handler *SteamAppsHandler) GetDepotDecryptionKey(conn Connection, depotId 
 func (handler *SteamAppsHandler) GetCDNAuthToken(conn Connection, appId uint32, depotId uint32, serverHostname string) (*steampb.CMsgClientGetCDNAuthTokenResponse, error) {
 	jobId := conn.GetNextJobId()
 
-	var encoder = NewProtoPacketEncoder(steamlang.EMsg_ClientGetCDNAuthToken)
-	header := encoder.Header.(*ProtoHeader)
+	var encoder = steammsg.NewProtoPacketEncoder(steamlang.EMsg_ClientGetCDNAuthToken)
+	header := encoder.Header.(*steammsg.ProtoHeader)
 	header.Proto.JobidSource = proto.Uint64(uint64(jobId))
 	encoder.Body = &steampb.CMsgClientGetCDNAuthToken{
 		AppId:    proto.Uint32(appId),
@@ -150,8 +151,8 @@ func (handler *SteamAppsHandler) GetCDNAuthToken(conn Connection, appId uint32, 
 	return waitForJob[*steampb.CMsgClientGetCDNAuthTokenResponse](conn, jobId, time.Second*30)
 }
 
-func (handler *SteamAppsHandler) handlePICSGetAccessTokensResponse(packet *Packet) ([]Event, error) {
-	var decoder = &ProtoPacketDecoder[*steampb.CMsgClientPICSAccessTokenResponse]{
+func (handler *SteamAppsHandler) handlePICSGetAccessTokensResponse(packet *steammsg.Packet) ([]Event, error) {
+	var decoder = &steammsg.ProtoPacketDecoder[*steampb.CMsgClientPICSAccessTokenResponse]{
 		Body: new(steampb.CMsgClientPICSAccessTokenResponse),
 	}
 	if err := decoder.Decode(packet); err != nil {
@@ -159,14 +160,14 @@ func (handler *SteamAppsHandler) handlePICSGetAccessTokensResponse(packet *Packe
 	}
 	return []Event{
 		MakeEvent(EventType_State, EventCallback{
-			JobId:   steam.JobId(packet.header.GetTargetJobId()),
+			JobId:   steam.JobId(packet.Header().GetTargetJobId()),
 			Payload: decoder.Body,
 		}),
 	}, nil
 }
 
-func (handler *SteamAppsHandler) handlePICSProductInfoResponse(packet *Packet) ([]Event, error) {
-	var decoder = &ProtoPacketDecoder[*steampb.CMsgClientPICSProductInfoResponse]{
+func (handler *SteamAppsHandler) handlePICSProductInfoResponse(packet *steammsg.Packet) ([]Event, error) {
+	var decoder = &steammsg.ProtoPacketDecoder[*steampb.CMsgClientPICSProductInfoResponse]{
 		Body: new(steampb.CMsgClientPICSProductInfoResponse),
 	}
 	if err := decoder.Decode(packet); err != nil {
@@ -174,14 +175,14 @@ func (handler *SteamAppsHandler) handlePICSProductInfoResponse(packet *Packet) (
 	}
 	return []Event{
 		MakeEvent(EventType_State, EventCallback{
-			JobId:   steam.JobId(packet.header.GetTargetJobId()),
+			JobId:   steam.JobId(packet.Header().GetTargetJobId()),
 			Payload: decoder.Body,
 		}),
 	}, nil
 }
 
-func (handler *SteamAppsHandler) handleFreeLicenseResponse(packet *Packet) ([]Event, error) {
-	var decoder = &ProtoPacketDecoder[*steampb.CMsgClientRequestFreeLicenseResponse]{
+func (handler *SteamAppsHandler) handleFreeLicenseResponse(packet *steammsg.Packet) ([]Event, error) {
+	var decoder = &steammsg.ProtoPacketDecoder[*steampb.CMsgClientRequestFreeLicenseResponse]{
 		Body: new(steampb.CMsgClientRequestFreeLicenseResponse),
 	}
 	if err := decoder.Decode(packet); err != nil {
@@ -189,14 +190,14 @@ func (handler *SteamAppsHandler) handleFreeLicenseResponse(packet *Packet) ([]Ev
 	}
 	return []Event{
 		MakeEvent(EventType_State, EventCallback{
-			JobId:   steam.JobId(packet.header.GetTargetJobId()),
+			JobId:   steam.JobId(packet.Header().GetTargetJobId()),
 			Payload: decoder.Body,
 		}),
 	}, nil
 }
 
-func (handler *SteamAppsHandler) handleGetDepotDecryptionKeyResponse(packet *Packet) ([]Event, error) {
-	var decoder = &ProtoPacketDecoder[*steampb.CMsgClientGetDepotDecryptionKeyResponse]{
+func (handler *SteamAppsHandler) handleGetDepotDecryptionKeyResponse(packet *steammsg.Packet) ([]Event, error) {
+	var decoder = &steammsg.ProtoPacketDecoder[*steampb.CMsgClientGetDepotDecryptionKeyResponse]{
 		Body: new(steampb.CMsgClientGetDepotDecryptionKeyResponse),
 	}
 	if err := decoder.Decode(packet); err != nil {
@@ -204,14 +205,14 @@ func (handler *SteamAppsHandler) handleGetDepotDecryptionKeyResponse(packet *Pac
 	}
 	return []Event{
 		MakeEvent(EventType_State, EventCallback{
-			JobId:   steam.JobId(packet.header.GetTargetJobId()),
+			JobId:   steam.JobId(packet.Header().GetTargetJobId()),
 			Payload: decoder.Body,
 		}),
 	}, nil
 }
 
-func (handler *SteamAppsHandler) handleGetCDNAuthTokenResponse(packet *Packet) ([]Event, error) {
-	var decoder = &ProtoPacketDecoder[*steampb.CMsgClientGetCDNAuthTokenResponse]{
+func (handler *SteamAppsHandler) handleGetCDNAuthTokenResponse(packet *steammsg.Packet) ([]Event, error) {
+	var decoder = &steammsg.ProtoPacketDecoder[*steampb.CMsgClientGetCDNAuthTokenResponse]{
 		Body: new(steampb.CMsgClientGetCDNAuthTokenResponse),
 	}
 	if err := decoder.Decode(packet); err != nil {
@@ -219,7 +220,7 @@ func (handler *SteamAppsHandler) handleGetCDNAuthTokenResponse(packet *Packet) (
 	}
 	return []Event{
 		MakeEvent(EventType_State, EventCallback{
-			JobId:   steam.JobId(packet.header.GetTargetJobId()),
+			JobId:   steam.JobId(packet.Header().GetTargetJobId()),
 			Payload: decoder.Body,
 		}),
 	}, nil

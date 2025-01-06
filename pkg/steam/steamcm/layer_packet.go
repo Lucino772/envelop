@@ -7,6 +7,7 @@ import (
 
 	"github.com/Lucino772/envelop/pkg/steam"
 	"github.com/Lucino772/envelop/pkg/steam/steamlang"
+	"github.com/Lucino772/envelop/pkg/steam/steammsg"
 	"github.com/Lucino772/envelop/pkg/steam/steampb"
 )
 
@@ -26,7 +27,7 @@ func (layer *packetLayer) ProcessIncoming(events []Event) ([]Event, error) {
 
 		switch payload := event.Payload.(type) {
 		case EventDataReceived:
-			packet, err := ParsePacket(payload.Data)
+			packet, err := steammsg.ParsePacket(payload.Data)
 			if err != nil {
 				return nil, err
 			}
@@ -71,8 +72,8 @@ func (layer *packetLayer) ProcessOutgoing(events []Event) ([]Event, error) {
 	return processedEvents, nil
 }
 
-func (layer *packetLayer) handleMulti(packet *Packet) ([]Event, error) {
-	var decoder = &ProtoPacketDecoder[*steampb.CMsgMulti]{
+func (layer *packetLayer) handleMulti(packet *steammsg.Packet) ([]Event, error) {
+	var decoder = &steammsg.ProtoPacketDecoder[*steampb.CMsgMulti]{
 		Body: new(steampb.CMsgMulti),
 	}
 	if err := decoder.Decode(packet); err != nil {
@@ -101,7 +102,7 @@ func (layer *packetLayer) handleMulti(packet *Packet) ([]Event, error) {
 			return nil, err
 		}
 
-		packet, err := ParsePacket(pktData)
+		packet, err := steammsg.ParsePacket(pktData)
 		if err != nil {
 			return nil, err
 		}

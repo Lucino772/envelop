@@ -4,6 +4,7 @@ import (
 	"fmt"
 
 	"github.com/Lucino772/envelop/pkg/steam/steamlang"
+	"github.com/Lucino772/envelop/pkg/steam/steammsg"
 	"github.com/Lucino772/envelop/pkg/steam/steampb"
 	"google.golang.org/protobuf/proto"
 )
@@ -16,7 +17,8 @@ func NewSteamContentHandler(unifiedMessage *SteamUnifiedMessageHandler) *SteamCo
 	return &SteamContentHandler{unifiedMessage: unifiedMessage}
 }
 
-func (handler *SteamContentHandler) Register(_ map[steamlang.EMsg]func(*Packet) ([]Event, error)) {}
+func (handler *SteamContentHandler) Register(_ map[steamlang.EMsg]func(*steammsg.Packet) ([]Event, error)) {
+}
 
 func (handler *SteamContentHandler) GetManifestRequestCode(conn Connection, depotId uint32, appId uint32, manifestId uint64, branch string) (uint64, error) {
 	request := &steampb.CContentServerDirectory_GetManifestRequestCode_Request{
@@ -35,7 +37,7 @@ func (handler *SteamContentHandler) GetManifestRequestCode(conn Connection, depo
 		return 0, err
 	}
 
-	var decoder = &ProtoPacketDecoder[*steampb.CContentServerDirectory_GetManifestRequestCode_Response]{
+	var decoder = &steammsg.ProtoPacketDecoder[*steampb.CContentServerDirectory_GetManifestRequestCode_Response]{
 		Body: new(steampb.CContentServerDirectory_GetManifestRequestCode_Response),
 	}
 	if err := decoder.Decode(response.Packet); err != nil {
@@ -55,7 +57,7 @@ func (handler *SteamContentHandler) GetServersForSteamPipe(conn Connection, cell
 		return nil, err
 	}
 
-	var decoder = &ProtoPacketDecoder[*steampb.CContentServerDirectory_GetServersForSteamPipe_Response]{
+	var decoder = &steammsg.ProtoPacketDecoder[*steampb.CContentServerDirectory_GetServersForSteamPipe_Response]{
 		Body: new(steampb.CContentServerDirectory_GetServersForSteamPipe_Response),
 	}
 	if err := decoder.Decode(response.Packet); err != nil {
@@ -79,7 +81,7 @@ func (handler *SteamContentHandler) GetCDNAuthToken(conn Connection, appId uint3
 		return "", err
 	}
 
-	var decoder = &ProtoPacketDecoder[*steampb.CContentServerDirectory_GetCDNAuthToken_Response]{
+	var decoder = &steammsg.ProtoPacketDecoder[*steampb.CContentServerDirectory_GetCDNAuthToken_Response]{
 		Body: new(steampb.CContentServerDirectory_GetCDNAuthToken_Response),
 	}
 	if err := decoder.Decode(response.Packet); err != nil {

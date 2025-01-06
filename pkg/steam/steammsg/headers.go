@@ -1,4 +1,4 @@
-package steamcm
+package steammsg
 
 import (
 	"encoding/binary"

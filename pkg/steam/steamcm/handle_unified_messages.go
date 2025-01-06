@@ -6,6 +6,7 @@ import (
 
 	"github.com/Lucino772/envelop/pkg/steam"
 	"github.com/Lucino772/envelop/pkg/steam/steamlang"
+	"github.com/Lucino772/envelop/pkg/steam/steammsg"
 	"google.golang.org/protobuf/proto"
 )
 
@@ -14,14 +15,14 @@ type SteamUnifiedMessageHandler struct{}
 type steamUnifiedMessageResponse struct {
 	Result     steamlang.EResult
 	MethodName string
-	Packet     *Packet
+	Packet     *steammsg.Packet
 }
 
 func NewSteamUnifiedMessageHandler() *SteamUnifiedMessageHandler {
 	return &SteamUnifiedMessageHandler{}
 }
 
-func (handler *SteamUnifiedMessageHandler) Register(handlers map[steamlang.EMsg]func(*Packet) ([]Event, error)) {
+func (handler *SteamUnifiedMessageHandler) Register(handlers map[steamlang.EMsg]func(*steammsg.Packet) ([]Event, error)) {
 	handlers[steamlang.EMsg_ServiceMethodResponse] = handler.handleServiceMethodResponse
 	handlers[steamlang.EMsg_ServiceMethod] = handler.handleServiceMethod
 }
@@ -30,8 +31,8 @@ func (handler *SteamUnifiedMessageHandler) SendMessage(conn Connection, name str
 	// TODO : Check that user is logged-in
 	jobId := conn.GetNextJobId()
 
-	var encoder = NewProtoPacketEncoder(steamlang.EMsg_ServiceMethodCallFromClient)
-	header := encoder.Header.(*ProtoHeader)
+	var encoder = steammsg.NewProtoPacketEncoder(steamlang.EMsg_ServiceMethodCallFromClient)
+	header := encoder.Header.(*steammsg.ProtoHeader)
 	header.Proto.JobidSource = proto.Uint64(uint64(jobId))
 	header.Proto.TargetJobName = proto.String(name)
 	encoder.Body = body
@@ -49,8 +50,8 @@ func (handler *SteamUnifiedMessageHandler) SendMessage(conn Connection, name str
 func (handler *SteamUnifiedMessageHandler) SendNotification(conn Connection, name string, body any) error {
 	// TODO : Check that user is logged-in
 
-	var encoder = NewProtoPacketEncoder(steamlang.EMsg_ServiceMethodCallFromClient)
-	header := encoder.Header.(*ProtoHeader)
+	var encoder = steammsg.NewProtoPacketEncoder(steamlang.EMsg_ServiceMethodCallFromClient)
+	header := encoder.Header.(*steammsg.ProtoHeader)
 	header.Proto.TargetJobName = proto.String(name)
 	encoder.Body = body
 
@@ -61,14 +62,14 @@ func (handler *SteamUnifiedMessageHandler) SendNotification(conn Connection, nam
 	return conn.SendPacket(packet)
 }
 
-func (handler *SteamUnifiedMessageHandler) handleServiceMethodResponse(packet *Packet) ([]Event, error) {
+func (handler *SteamUnifiedMessageHandler) handleServiceMethodResponse(packet *steammsg.Packet) ([]Event, error) {
 	if !packet.IsProto() {
 		return nil, errors.New("non-protobuf packet")
 	}
-	protoHeader := packet.Header().(*ProtoHeader).Proto
+	protoHeader := packet.Header().(*steammsg.ProtoHeader).Proto
 	return []Event{
 		MakeEvent(EventType_State, EventCallback{
-			JobId: steam.JobId(packet.header.GetTargetJobId()),
+			JobId: steam.JobId(packet.Header().GetTargetJobId()),
 			Payload: &steamUnifiedMessageResponse{
 				Result:     steamlang.EResult(protoHeader.GetEresult()),
 				MethodName: protoHeader.GetTargetJobName(),
@@ -78,7 +79,7 @@ func (handler *SteamUnifiedMessageHandler) handleServiceMethodResponse(packet *P
 	}, nil
 }
 
-func (handler *SteamUnifiedMessageHandler) handleServiceMethod(packet *Packet) ([]Event, error) {
+func (handler *SteamUnifiedMessageHandler) handleServiceMethod(packet *steammsg.Packet) ([]Event, error) {
 	if !packet.IsProto() {
 		return nil, errors.New("non-protobuf packet")
 	}

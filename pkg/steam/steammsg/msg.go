@@ -1,4 +1,4 @@
-package steamcm
+package steammsg
 
 import "github.com/Lucino772/envelop/pkg/steam/steamlang"
 

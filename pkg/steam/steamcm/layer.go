@@ -1,6 +1,9 @@
 package steamcm
 
-import "github.com/Lucino772/envelop/pkg/steam"
+import (
+	"github.com/Lucino772/envelop/pkg/steam"
+	"github.com/Lucino772/envelop/pkg/steam/steammsg"
+)
 
 type EventType = uint
 
@@ -32,10 +35,10 @@ type EventDataToSend struct {
 	Data []byte
 }
 type EventPacketReceived struct {
-	Packet *Packet
+	Packet *steammsg.Packet
 }
 type EventPacketTosend struct {
-	Packet *Packet
+	Packet *steammsg.Packet
 }
 
 type EventCallback struct {

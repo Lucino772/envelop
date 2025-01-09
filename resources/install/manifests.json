@@ -32,5 +32,17 @@
             }
         ],
         "config": "https://raw.githubusercontent.com/Lucino772/envelop/main/resources/install/configs/minecraft-vanilla.yaml"
+    },
+    "valheim": {
+        "sources": [
+            {
+                "type": "steam",
+                "appId": 896660,
+                "exports": {
+                    "exe": "{{ .Destination }}/valheim_server.exe"
+                }
+            }
+        ],
+        "config": "https://raw.githubusercontent.com/Lucino772/envelop/main/resources/install/configs/valheim.yaml"
     }
 }

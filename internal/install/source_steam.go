@@ -10,7 +10,7 @@ import (
 	"path/filepath"
 	"strconv"
 
-	"github.com/Lucino772/envelop/pkg/steam/steamcm"
+	"github.com/Lucino772/envelop/pkg/steam/steamcdn"
 	"github.com/Lucino772/envelop/pkg/steam/steamdl"
 	"github.com/Lucino772/envelop/pkg/steam/steamlang"
 	"github.com/Lucino772/envelop/pkg/steam/steamvdf"
@@ -103,7 +103,7 @@ type SteamSourceMetadata struct {
 
 type steamSourceDepotMetadata struct {
 	depotInfo     *steamdl.DepotInfo
-	depotManifest *steamcm.DepotManifest
+	depotManifest *steamcdn.DepotManifest
 	cdnToken      string
 }
 

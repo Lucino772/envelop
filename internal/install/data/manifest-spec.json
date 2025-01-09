@@ -7,13 +7,21 @@
             "items": {
                 "oneOf": [
                     {
-                        "$ref": "#/definitions/url_source"
+                        "$ref": "#/definitions/http_source"
+                    },
+                    {
+                        "$ref": "#/definitions/base64_source"
+                    },
+                    {
+                        "$ref": "#/definitions/steam_source"
                     }
                 ],
                 "properties": {
                     "type": {
                         "enum": [
-                            "url"
+                            "http",
+                            "base64",
+                            "steam"
                         ]
                     },
                     "destination": {
@@ -36,15 +44,43 @@
         "sources"
     ],
     "definitions": {
-        "url_source": {
+        "http_source": {
             "type": "object",
             "properties": {
                 "url": {
+                    "type": "string"
+                },
+                "hash": {
+                    "type": "string"
+                },
+                "archive": {
                     "type": "string"
                 }
             },
             "required": [
                 "url"
+            ]
+        },
+        "base64_source": {
+            "type": "object",
+            "properties": {
+                "content": {
+                    "type": "string"
+                }
+            },
+            "required": [
+                "content"
+            ]
+        },
+        "steam_source": {
+            "type": "object",
+            "properties": {
+                "appId": {
+                    "type": "integer"
+                }
+            },
+            "required": [
+                "appId"
             ]
         },
         "exports": {

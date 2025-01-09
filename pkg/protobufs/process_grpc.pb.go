@@ -39,7 +39,7 @@ func NewProcessClient(cc grpc.ClientConnInterface) ProcessClient {
 
 func (c *processClient) GetStatus(ctx context.Context, in *emptypb.Empty, opts ...grpc.CallOption) (*Status, error) {
 	out := new(Status)
-	err := c.cc.Invoke(ctx, "/Process/GetStatus", in, out, opts...)
+	err := c.cc.Invoke(ctx, "/envelop.Process/GetStatus", in, out, opts...)
 	if err != nil {
 		return nil, err
 	}
@@ -47,7 +47,7 @@ func (c *processClient) GetStatus(ctx context.Context, in *emptypb.Empty, opts .
 }
 
 func (c *processClient) StreamStatus(ctx context.Context, in *emptypb.Empty, opts ...grpc.CallOption) (Process_StreamStatusClient, error) {
-	stream, err := c.cc.NewStream(ctx, &Process_ServiceDesc.Streams[0], "/Process/StreamStatus", opts...)
+	stream, err := c.cc.NewStream(ctx, &Process_ServiceDesc.Streams[0], "/envelop.Process/StreamStatus", opts...)
 	if err != nil {
 		return nil, err
 	}
@@ -80,7 +80,7 @@ func (x *processStreamStatusClient) Recv() (*Status, error) {
 
 func (c *processClient) WriteCommand(ctx context.Context, in *Command, opts ...grpc.CallOption) (*emptypb.Empty, error) {
 	out := new(emptypb.Empty)
-	err := c.cc.Invoke(ctx, "/Process/WriteCommand", in, out, opts...)
+	err := c.cc.Invoke(ctx, "/envelop.Process/WriteCommand", in, out, opts...)
 	if err != nil {
 		return nil, err
 	}
@@ -88,7 +88,7 @@ func (c *processClient) WriteCommand(ctx context.Context, in *Command, opts ...g
 }
 
 func (c *processClient) StreamLogs(ctx context.Context, in *emptypb.Empty, opts ...grpc.CallOption) (Process_StreamLogsClient, error) {
-	stream, err := c.cc.NewStream(ctx, &Process_ServiceDesc.Streams[1], "/Process/StreamLogs", opts...)
+	stream, err := c.cc.NewStream(ctx, &Process_ServiceDesc.Streams[1], "/envelop.Process/StreamLogs", opts...)
 	if err != nil {
 		return nil, err
 	}
@@ -169,7 +169,7 @@ func _Process_GetStatus_Handler(srv interface{}, ctx context.Context, dec func(i
 	}
 	info := &grpc.UnaryServerInfo{
 		Server:     srv,
-		FullMethod: "/Process/GetStatus",
+		FullMethod: "/envelop.Process/GetStatus",
 	}
 	handler := func(ctx context.Context, req interface{}) (interface{}, error) {
 		return srv.(ProcessServer).GetStatus(ctx, req.(*emptypb.Empty))
@@ -208,7 +208,7 @@ func _Process_WriteCommand_Handler(srv interface{}, ctx context.Context, dec fun
 	}
 	info := &grpc.UnaryServerInfo{
 		Server:     srv,
-		FullMethod: "/Process/WriteCommand",
+		FullMethod: "/envelop.Process/WriteCommand",
 	}
 	handler := func(ctx context.Context, req interface{}) (interface{}, error) {
 		return srv.(ProcessServer).WriteCommand(ctx, req.(*Command))
@@ -241,7 +241,7 @@ func (x *processStreamLogsServer) Send(m *Log) error {
 // It's only intended for direct use with grpc.RegisterService,
 // and not to be introspected or modified (even as a copy)
 var Process_ServiceDesc = grpc.ServiceDesc{
-	ServiceName: "Process",
+	ServiceName: "envelop.Process",
 	HandlerType: (*ProcessServer)(nil),
 	Methods: []grpc.MethodDesc{
 		{

@@ -12,6 +12,7 @@ import (
 	"text/template"
 
 	"github.com/Lucino772/envelop/pkg/download"
+	"github.com/alitto/pond/v2"
 	"github.com/mitchellh/mapstructure"
 	"github.com/xeipuuv/gojsonschema"
 	"golang.org/x/sync/errgroup"
@@ -21,22 +22,6 @@ var ErrManifestNotExists = errors.New("manifest does not exists")
 
 //go:embed data/manifest-spec.json
 var manifestSchema string
-
-type Manifest struct {
-	Sources []Source `mapstructure:"sources,omitempty"`
-	Config  string   `mapstructure:"config,omitempty"`
-}
-
-func (m *Manifest) WithInstallDir(dir string) *Manifest {
-	sources := make([]Source, 0)
-	for _, src := range m.Sources {
-		sources = append(sources, src.WithInstallDir(dir))
-	}
-	return &Manifest{
-		Sources: sources,
-		Config:  m.Config,
-	}
-}
 
 type Installer struct {
 	manifestUrl  string
@@ -111,34 +96,51 @@ func (i *Installer) GetManifest(id string) (*Manifest, error) {
 	return &manifest, nil
 }
 
-func (i *Installer) Install(ctx context.Context, m *Manifest, directory string) error {
-	m = m.WithInstallDir(directory)
-	exports := make(map[string]any, 0)
-
-	errg, newCtx := errgroup.WithContext(ctx)
-	errg.SetLimit(10)
+func (i *Installer) Install(ctx context.Context, m *Manifest, config DownloadConfig) error {
+	var dlOptions []DownloaderOptFunc
+	dlOptions = append(dlOptions, WithDownloadConfig(config))
 	for _, source := range m.Sources {
-		if ctx.Err() != nil {
-			break
+		dlOptions = append(dlOptions, source.GetDownloaderOptions()...)
+	}
+	downloader := NewDownloader(dlOptions...)
+	if err := downloader.Initialize(); err != nil {
+		return err
+	}
+
+	exports := make(map[string]any, 0)
+	metadatas := make([]Metadata, 0)
+	for _, source := range m.Sources {
+		metadata, err := source.GetMetadata(ctx, downloader)
+		if err != nil {
+			return err
 		}
-
-		source.IterTasks(func(d *download.Downloader) bool {
-			errg.Go(func() error {
-				return d.Download(newCtx)
-			})
-			return newCtx.Err() == nil
-		})
-
-		for key, val := range source.GetExports() {
-			exports[key] = val
+		if metadata != nil {
+			for key, val := range metadata.GetExports() {
+				exports[key] = val
+			}
+			metadatas = append(metadatas, metadata)
 		}
 	}
-	if err := errg.Wait(); err != nil {
+
+	errg, errCtx := errgroup.WithContext(ctx)
+	workerPool := pond.NewPool(10, pond.WithContext(errCtx))
+	for _, metadata := range metadatas {
+		errg.Go(func() error {
+			waiter, err := metadata.Install(errCtx, workerPool, downloader)
+			if err != nil {
+				return err
+			}
+			return waiter.Wait()
+		})
+	}
+	err := errg.Wait()
+	workerPool.StopAndWait()
+	if err != nil {
 		return err
 	}
 
 	// TODO: Cache config file to improve performance
-	configPath := filepath.Join(directory, "envelop.yaml")
+	configPath := filepath.Join(config.InstallDir, "envelop.yaml")
 	dl := download.NewDownloader(m.Config, configPath)
 	dl.PostDownloadHook = func(dst string) error {
 		content, err := os.ReadFile(dst)

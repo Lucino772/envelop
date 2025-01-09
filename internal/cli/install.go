@@ -4,6 +4,7 @@ import (
 	"context"
 	"os"
 	"path/filepath"
+	"runtime"
 
 	"github.com/Lucino772/envelop/internal/install"
 	"github.com/spf13/cobra"
@@ -66,6 +67,12 @@ func runInstall(opts *installOptions) (err error) {
 	return installer.Install(
 		context.Background(),
 		manifest,
-		opts.Directory,
+		install.DownloadConfig{
+			InstallDir:  opts.Directory,
+			TargetOs:    runtime.GOOS,
+			TargetArch:  runtime.GOARCH,
+			TargetLang:  "",
+			LowViolence: false,
+		},
 	)
 }

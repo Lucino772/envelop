@@ -1,0 +1,3 @@
+# steamvdf
+
+The implementation for the `steamvdf` package comes from [https://github.com/Jleagle/steam-go](https://github.com/Jleagle/steam-go/tree/3dc26c48c3d271aae774f6e5823214e3299e47f3/steamvdf)

@@ -12,9 +12,16 @@ import (
 	"github.com/Lucino772/envelop/internal/utils"
 )
 
-type HttpGetter struct{}
+type HttpGetter struct {
+	Client *http.Client
+}
 
 func (g *HttpGetter) Get(ctx context.Context, u *url.URL, dst string) error {
+	client := g.Client
+	if client == nil {
+		client = http.DefaultClient
+	}
+
 	_, err := os.Stat(dst)
 	if errors.Is(err, os.ErrNotExist) {
 		if err := os.MkdirAll(filepath.Dir(dst), os.ModePerm); err != nil {

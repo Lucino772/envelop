@@ -35,7 +35,7 @@ func NewRconClient(cc grpc.ClientConnInterface) RconClient {
 
 func (c *rconClient) SendCommand(ctx context.Context, in *RconCommand, opts ...grpc.CallOption) (*RconResponse, error) {
 	out := new(RconResponse)
-	err := c.cc.Invoke(ctx, "/Rcon/SendCommand", in, out, opts...)
+	err := c.cc.Invoke(ctx, "/envelop.Rcon/SendCommand", in, out, opts...)
 	if err != nil {
 		return nil, err
 	}
@@ -80,7 +80,7 @@ func _Rcon_SendCommand_Handler(srv interface{}, ctx context.Context, dec func(in
 	}
 	info := &grpc.UnaryServerInfo{
 		Server:     srv,
-		FullMethod: "/Rcon/SendCommand",
+		FullMethod: "/envelop.Rcon/SendCommand",
 	}
 	handler := func(ctx context.Context, req interface{}) (interface{}, error) {
 		return srv.(RconServer).SendCommand(ctx, req.(*RconCommand))
@@ -92,7 +92,7 @@ func _Rcon_SendCommand_Handler(srv interface{}, ctx context.Context, dec func(in
 // It's only intended for direct use with grpc.RegisterService,
 // and not to be introspected or modified (even as a copy)
 var Rcon_ServiceDesc = grpc.ServiceDesc{
-	ServiceName: "Rcon",
+	ServiceName: "envelop.Rcon",
 	HandlerType: (*RconServer)(nil),
 	Methods: []grpc.MethodDesc{
 		{

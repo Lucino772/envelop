@@ -165,21 +165,22 @@ func (layer *encryptedLayer) handleEncryptRequest(packet *steammsg.Packet) ([]Ev
 }
 
 func (layer *encryptedLayer) buildEncryptResponse(version uint32, challengeData []byte, crc uint32) (*steammsg.Packet, error) {
-	encoder := steammsg.NewPacketEncoder(steamlang.EMsg_ChannelEncryptResponse)
-	encoder.Body = &steammsg.MsgChannelEncryptResponse{
+	header := steammsg.NewStdHeader(steamlang.EMsg_ChannelEncryptResponse)
+	body := &steammsg.MsgChannelEncryptResponse{
 		ProtoVersion: version,
 		KeySize:      128,
 	}
-	if _, err := encoder.Data.Write(challengeData); err != nil {
+	var payload bytes.Buffer
+	if _, err := payload.Write(challengeData); err != nil {
 		return nil, err
 	}
-	if err := binary.Write(encoder.Data, binary.LittleEndian, crc); err != nil {
+	if err := binary.Write(&payload, binary.LittleEndian, crc); err != nil {
 		return nil, err
 	}
-	if err := binary.Write(encoder.Data, binary.LittleEndian, uint32(0)); err != nil {
+	if err := binary.Write(&payload, binary.LittleEndian, uint32(0)); err != nil {
 		return nil, err
 	}
-	return encoder.Encode()
+	return steammsg.EncodePacket(header, body, payload.Bytes())
 }
 
 func (layer *encryptedLayer) handleEncryptResult(packet *steammsg.Packet) ([]Event, error) {

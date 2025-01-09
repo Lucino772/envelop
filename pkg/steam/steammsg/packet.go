@@ -5,10 +5,8 @@ import (
 	"encoding/binary"
 	"errors"
 	"io"
-	"math"
 
 	"github.com/Lucino772/envelop/pkg/steam/steamlang"
-	"github.com/Lucino772/envelop/pkg/steam/steampb"
 	"google.golang.org/protobuf/proto"
 )
 
@@ -99,71 +97,30 @@ func (decoder *ProtoPacketDecoder[T]) Decode(packet *Packet) error {
 	return proto.Unmarshal(packet.buf.Bytes(), decoder.Body)
 }
 
-type PacketEncoder struct {
-	Header PacketHeader
-	Body   any
-	Data   *bytes.Buffer
-}
-
-func NewPacketEncoder(emsg steamlang.EMsg) *PacketEncoder {
-	return &PacketEncoder{
-		Header: &StdHeader{
-			MsgType:     emsg,
-			TargetJobId: math.MaxUint64,
-			SourceJobId: math.MaxUint64,
-		},
-		Body: nil,
-		Data: bytes.NewBuffer([]byte{}),
-	}
-}
-
-func NewExtPacketEncoder(emsg steamlang.EMsg) *PacketEncoder {
-	return &PacketEncoder{
-		Header: &ExtHeader{
-			MsgType:     emsg,
-			TargetJobId: math.MaxUint64,
-			SourceJobId: math.MaxUint64,
-		},
-		Body: nil,
-		Data: bytes.NewBuffer([]byte{}),
-	}
-}
-
-func NewProtoPacketEncoder(emsg steamlang.EMsg) *PacketEncoder {
-	return &PacketEncoder{
-		Header: &ProtoHeader{
-			MsgType: emsg,
-			Proto:   new(steampb.CMsgProtoBufHeader),
-		},
-		Body: nil,
-		Data: nil,
-	}
-}
-
-func (encoder *PacketEncoder) Encode() (*Packet, error) {
-	if encoder.Body == nil {
+func EncodePacket(header PacketHeader, body any, payload []byte) (*Packet, error) {
+	if body == nil {
 		return nil, errors.New("missing packet body")
 	}
-
 	var pkt Packet
-	pkt.header = encoder.Header
-	if body, ok := encoder.Body.(proto.Message); ok {
-		data, err := proto.Marshal(body)
+	pkt.header = header
+	switch _body := body.(type) {
+	case proto.Message:
+		data, err := proto.Marshal(_body)
 		if err != nil {
 			return nil, err
 		}
 		pkt.buf = bytes.NewBuffer(data)
-	} else if body, ok := encoder.Body.(io.WriterTo); ok {
+	case io.WriterTo:
 		pkt.buf = bytes.NewBuffer([]byte{})
-		if _, err := body.WriteTo(pkt.buf); err != nil {
+		if _, err := _body.WriteTo(pkt.buf); err != nil {
 			return nil, err
 		}
-		if encoder.Data != nil {
-			if _, err := encoder.Data.WriteTo(pkt.buf); err != nil {
+		if payload != nil {
+			if _, err := pkt.buf.Write(payload); err != nil {
 				return nil, err
 			}
 		}
-	} else {
+	default:
 		return nil, errors.New("incomptabile packet body")
 	}
 	return &pkt, nil

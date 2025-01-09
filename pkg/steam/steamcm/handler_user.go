@@ -25,18 +25,16 @@ func (handler *SteamUserHandler) Register(handlers map[steamlang.EMsg]func(*stea
 
 func (handler *SteamUserHandler) LogInAnonymously(conn Connection) (*steampb.CMsgClientLogonResponse, error) {
 	audId := steam.NewInstanceSteamId(0, steam.Instance_All, steamlang.EUniverse_Public, steamlang.EAccountType_AnonUser)
-	var encoder = steammsg.NewProtoPacketEncoder(steamlang.EMsg_ClientLogon)
-	header := encoder.Header.(*steammsg.ProtoHeader)
+	header := steammsg.NewProtoHeader(steamlang.EMsg_ClientLogon)
 	header.Proto.ClientSessionid = proto.Int32(0)
 	header.Proto.Steamid = proto.Uint64(uint64(audId))
-
-	encoder.Body = &steampb.CMsgClientLogon{
+	body := &steampb.CMsgClientLogon{
 		ProtocolVersion: proto.Uint32(65580),
 		ClientOsType:    proto.Uint32(20),
 		ClientLanguage:  proto.String("english"),
 		CellId:          proto.Uint32(0),
 	}
-	packet, err := encoder.Encode()
+	packet, err := steammsg.EncodePacket(header, body, nil)
 	if err != nil {
 		return nil, err
 	}

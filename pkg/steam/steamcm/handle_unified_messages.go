@@ -31,13 +31,10 @@ func (handler *SteamUnifiedMessageHandler) SendMessage(conn Connection, name str
 	// TODO : Check that user is logged-in
 	jobId := conn.GetNextJobId()
 
-	var encoder = steammsg.NewProtoPacketEncoder(steamlang.EMsg_ServiceMethodCallFromClient)
-	header := encoder.Header.(*steammsg.ProtoHeader)
+	header := steammsg.NewProtoHeader(steamlang.EMsg_ServiceMethodCallFromClient)
 	header.Proto.JobidSource = proto.Uint64(uint64(jobId))
 	header.Proto.TargetJobName = proto.String(name)
-	encoder.Body = body
-
-	packet, err := encoder.Encode()
+	packet, err := steammsg.EncodePacket(header, body, nil)
 	if err != nil {
 		return nil, err
 	}
@@ -50,12 +47,9 @@ func (handler *SteamUnifiedMessageHandler) SendMessage(conn Connection, name str
 func (handler *SteamUnifiedMessageHandler) SendNotification(conn Connection, name string, body any) error {
 	// TODO : Check that user is logged-in
 
-	var encoder = steammsg.NewProtoPacketEncoder(steamlang.EMsg_ServiceMethodCallFromClient)
-	header := encoder.Header.(*steammsg.ProtoHeader)
+	header := steammsg.NewProtoHeader(steamlang.EMsg_ServiceMethodCallFromClient)
 	header.Proto.TargetJobName = proto.String(name)
-	encoder.Body = body
-
-	packet, err := encoder.Encode()
+	packet, err := steammsg.EncodePacket(header, body, nil)
 	if err != nil {
 		return err
 	}

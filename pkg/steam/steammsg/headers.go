@@ -3,6 +3,7 @@ package steammsg
 import (
 	"encoding/binary"
 	"io"
+	"math"
 
 	"github.com/Lucino772/envelop/pkg/steam"
 	"github.com/Lucino772/envelop/pkg/steam/steamlang"
@@ -28,6 +29,14 @@ type StdHeader struct {
 	MsgType     steamlang.EMsg
 	TargetJobId uint64
 	SourceJobId uint64
+}
+
+func NewStdHeader(emsg steamlang.EMsg) *StdHeader {
+	return &StdHeader{
+		MsgType:     emsg,
+		TargetJobId: math.MaxUint64,
+		SourceJobId: math.MaxUint64,
+	}
 }
 
 func (h *StdHeader) GetMsgType() steamlang.EMsg {
@@ -80,6 +89,14 @@ type ExtHeader struct {
 	SessionId     int32
 }
 
+func NewExtHeader(emsg steamlang.EMsg) *ExtHeader {
+	return &ExtHeader{
+		MsgType:     emsg,
+		TargetJobId: math.MaxUint64,
+		SourceJobId: math.MaxUint64,
+	}
+}
+
 func (h *ExtHeader) GetMsgType() steamlang.EMsg {
 	return h.MsgType
 }
@@ -126,6 +143,13 @@ type ProtoHeader struct {
 	MsgType   steamlang.EMsg
 	HeaderLen int32
 	Proto     *steampb.CMsgProtoBufHeader
+}
+
+func NewProtoHeader(emsg steamlang.EMsg) *ProtoHeader {
+	return &ProtoHeader{
+		MsgType: emsg,
+		Proto:   new(steampb.CMsgProtoBufHeader),
+	}
 }
 
 func (h *ProtoHeader) GetMsgType() steamlang.EMsg {

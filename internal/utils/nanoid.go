@@ -38,7 +38,7 @@ func NewNanoIDGenerator() (func() (string, error), error) {
 			if _, err := rand.Read(buf); err != nil {
 				return "", err
 			}
-
+			offset = 0
 		}
 
 		for i := 0; i < nanoIdSize; i++ {

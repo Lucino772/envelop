@@ -111,22 +111,20 @@ func (layer *encryptedLayer) handleIncomingData(data []byte) ([]Event, error) {
 }
 
 func (layer *encryptedLayer) handleEncryptRequest(packet *steammsg.Packet) ([]Event, error) {
-	var decoder = &steammsg.PacketDecoder[*steammsg.MsgChannelEncryptRequest]{
-		Body: new(steammsg.MsgChannelEncryptRequest),
-	}
-	if err := decoder.Decode(packet); err != nil {
+	body := new(steammsg.MsgChannelEncryptRequest)
+	randomChallenge, err := steammsg.DecodePacket(packet, body)
+	if err != nil {
 		return nil, err
 	}
-	randomChallenge := decoder.Payload
 
-	if decoder.Body.ProtoVersion != 1 {
+	if body.ProtoVersion != 1 {
 		return nil, errors.New("version mismatch")
 	}
-	if decoder.Body.Universe != layer.Universe {
+	if body.Universe != layer.Universe {
 		return nil, errors.New("unexpected universe")
 	}
 
-	pubKey := steam.GetUniversePublicKey(decoder.Body.Universe)
+	pubKey := steam.GetUniversePublicKey(body.Universe)
 	if pubKey == nil {
 		return nil, errors.New("invalid universe")
 	}
@@ -154,7 +152,7 @@ func (layer *encryptedLayer) handleEncryptRequest(packet *steammsg.Packet) ([]Ev
 	}
 	keyCrc := crc32.ChecksumIEEE(encryptedData)
 
-	responsePacket, err := layer.buildEncryptResponse(decoder.Body.ProtoVersion, encryptedData, keyCrc)
+	responsePacket, err := layer.buildEncryptResponse(body.ProtoVersion, encryptedData, keyCrc)
 	if err != nil {
 		return nil, err
 	}
@@ -184,15 +182,13 @@ func (layer *encryptedLayer) buildEncryptResponse(version uint32, challengeData 
 }
 
 func (layer *encryptedLayer) handleEncryptResult(packet *steammsg.Packet) ([]Event, error) {
-	var decoder = &steammsg.PacketDecoder[*steammsg.MsgChannelEncryptResult]{
-		Body: new(steammsg.MsgChannelEncryptResult),
-	}
-	if err := decoder.Decode(packet); err != nil {
+	body := new(steammsg.MsgChannelEncryptResult)
+	if _, err := steammsg.DecodePacket(packet, body); err != nil {
 		return nil, err
 	}
 
 	// FIXME: What should we do if result is not ok, disconnect ?
-	if decoder.Body.Result == steamlang.EResult_OK {
+	if body.Result == steamlang.EResult_OK {
 		layer.state = state_Encrypted
 		return []Event{MakeEvent(EventType_State, EventChannelEncrypted{})}, nil
 	}

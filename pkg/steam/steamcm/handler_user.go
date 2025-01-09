@@ -50,27 +50,23 @@ func (handler *SteamUserHandler) handleClientLogOnresponse(packet *steammsg.Pack
 		return nil, nil
 	}
 
-	var decoder = &steammsg.ProtoPacketDecoder[*steampb.CMsgClientLogonResponse]{
-		Body: new(steampb.CMsgClientLogonResponse),
-	}
-	if err := decoder.Decode(packet); err != nil {
+	body := new(steampb.CMsgClientLogonResponse)
+	if _, err := steammsg.DecodePacket(packet, body); err != nil {
 		return nil, err
 	}
 	return []Event{
 		MakeEvent(EventType_State, EventCallback{
 			JobId:   steam.JobId(packet.Header().GetTargetJobId()),
-			Payload: decoder.Body,
+			Payload: body,
 		}),
 	}, nil
 }
 
 func (handler *SteamUserHandler) handleClientSessionToken(packet *steammsg.Packet) ([]Event, error) {
-	var decoder = &steammsg.ProtoPacketDecoder[*steampb.CMsgClientSessionToken]{
-		Body: new(steampb.CMsgClientSessionToken),
-	}
-	if err := decoder.Decode(packet); err != nil {
+	body := new(steampb.CMsgClientSessionToken)
+	if _, err := steammsg.DecodePacket(packet, body); err != nil {
 		return nil, err
 	}
-	log.Println("Session Token:", decoder.Body)
+	log.Println("Session Token:", body)
 	return nil, nil
 }

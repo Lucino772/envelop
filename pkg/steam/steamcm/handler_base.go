@@ -21,10 +21,8 @@ func (handler *SteamBaseHandler) Register(handlers map[steamlang.EMsg]func(*stea
 }
 
 func (handler *SteamBaseHandler) handleServerUnavailable(packet *steammsg.Packet) ([]Event, error) {
-	var decoder = &steammsg.PacketDecoder[*steammsg.MsgClientServerUnavailable]{
-		Body: new(steammsg.MsgClientServerUnavailable),
-	}
-	if err := decoder.Decode(packet); err != nil {
+	body := new(steammsg.MsgClientServerUnavailable)
+	if _, err := steammsg.DecodePacket(packet, body); err != nil {
 		return nil, err
 	}
 	// TODO: Close connection
@@ -37,13 +35,10 @@ func (handler *SteamBaseHandler) handleCMList(_ *steammsg.Packet) ([]Event, erro
 }
 
 func (handler *SteamBaseHandler) handleSessionToken(packet *steammsg.Packet) ([]Event, error) {
-	var decoder = &steammsg.ProtoPacketDecoder[*steampb.CMsgClientSessionToken]{
-		Body: new(steampb.CMsgClientSessionToken),
-	}
-	if err := decoder.Decode(packet); err != nil {
+	body := new(steampb.CMsgClientSessionToken)
+	if _, err := steammsg.DecodePacket(packet, body); err != nil {
 		return nil, err
 	}
-
 	// TODO: Set internal session token
 	// body.GetToken()
 	return nil, nil

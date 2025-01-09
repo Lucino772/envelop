@@ -77,13 +77,11 @@ func (layer *sessionLayer) handleIncomingPacket(packet *steammsg.Packet) ([]Even
 		if !packet.IsProto() {
 			return nil, nil
 		}
-		var decoder = &steammsg.ProtoPacketDecoder[*steampb.CMsgClientLogonResponse]{
-			Body: new(steampb.CMsgClientLogonResponse),
-		}
-		if err := decoder.Decode(packet); err != nil {
+		body := new(steampb.CMsgClientLogonResponse)
+		if _, err := steammsg.DecodePacket(packet, body); err != nil {
 			return nil, err
 		}
-		if decoder.Body.GetEresult() == int32(steamlang.EResult_OK) {
+		if body.GetEresult() == int32(steamlang.EResult_OK) {
 			layer.steamId = packet.Header().GetSteamId()
 			layer.sessionId = packet.Header().GetSessionId()
 		} else {
@@ -96,10 +94,8 @@ func (layer *sessionLayer) handleIncomingPacket(packet *steammsg.Packet) ([]Even
 		if !packet.IsProto() {
 			return nil, nil
 		}
-		var decoder = &steammsg.ProtoPacketDecoder[*steampb.CMsgClientLoggedOff]{
-			Body: new(steampb.CMsgClientLoggedOff),
-		}
-		if err := decoder.Decode(packet); err != nil {
+		body := new(steampb.CMsgClientLoggedOff)
+		if _, err := steammsg.DecodePacket(packet, body); err != nil {
 			return nil, err
 		}
 	}

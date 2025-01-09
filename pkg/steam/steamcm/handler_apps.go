@@ -142,76 +142,66 @@ func (handler *SteamAppsHandler) GetCDNAuthToken(conn Connection, appId uint32, 
 }
 
 func (handler *SteamAppsHandler) handlePICSGetAccessTokensResponse(packet *steammsg.Packet) ([]Event, error) {
-	var decoder = &steammsg.ProtoPacketDecoder[*steampb.CMsgClientPICSAccessTokenResponse]{
-		Body: new(steampb.CMsgClientPICSAccessTokenResponse),
-	}
-	if err := decoder.Decode(packet); err != nil {
+	body := new(steampb.CMsgClientPICSAccessTokenResponse)
+	if _, err := steammsg.DecodePacket(packet, body); err != nil {
 		return nil, err
 	}
 	return []Event{
 		MakeEvent(EventType_State, EventCallback{
 			JobId:   steam.JobId(packet.Header().GetTargetJobId()),
-			Payload: decoder.Body,
+			Payload: body,
 		}),
 	}, nil
 }
 
 func (handler *SteamAppsHandler) handlePICSProductInfoResponse(packet *steammsg.Packet) ([]Event, error) {
-	var decoder = &steammsg.ProtoPacketDecoder[*steampb.CMsgClientPICSProductInfoResponse]{
-		Body: new(steampb.CMsgClientPICSProductInfoResponse),
-	}
-	if err := decoder.Decode(packet); err != nil {
+	body := new(steampb.CMsgClientPICSProductInfoResponse)
+	if _, err := steammsg.DecodePacket(packet, body); err != nil {
 		return nil, err
 	}
 	return []Event{
 		MakeEvent(EventType_State, EventCallback{
 			JobId:   steam.JobId(packet.Header().GetTargetJobId()),
-			Payload: decoder.Body,
+			Payload: body,
 		}),
 	}, nil
 }
 
 func (handler *SteamAppsHandler) handleFreeLicenseResponse(packet *steammsg.Packet) ([]Event, error) {
-	var decoder = &steammsg.ProtoPacketDecoder[*steampb.CMsgClientRequestFreeLicenseResponse]{
-		Body: new(steampb.CMsgClientRequestFreeLicenseResponse),
-	}
-	if err := decoder.Decode(packet); err != nil {
+	body := new(steampb.CMsgClientRequestFreeLicenseResponse)
+	if _, err := steammsg.DecodePacket(packet, body); err != nil {
 		return nil, err
 	}
 	return []Event{
 		MakeEvent(EventType_State, EventCallback{
 			JobId:   steam.JobId(packet.Header().GetTargetJobId()),
-			Payload: decoder.Body,
+			Payload: body,
 		}),
 	}, nil
 }
 
 func (handler *SteamAppsHandler) handleGetDepotDecryptionKeyResponse(packet *steammsg.Packet) ([]Event, error) {
-	var decoder = &steammsg.ProtoPacketDecoder[*steampb.CMsgClientGetDepotDecryptionKeyResponse]{
-		Body: new(steampb.CMsgClientGetDepotDecryptionKeyResponse),
-	}
-	if err := decoder.Decode(packet); err != nil {
+	body := new(steampb.CMsgClientGetDepotDecryptionKeyResponse)
+	if _, err := steammsg.DecodePacket(packet, body); err != nil {
 		return nil, err
 	}
 	return []Event{
 		MakeEvent(EventType_State, EventCallback{
 			JobId:   steam.JobId(packet.Header().GetTargetJobId()),
-			Payload: decoder.Body,
+			Payload: body,
 		}),
 	}, nil
 }
 
 func (handler *SteamAppsHandler) handleGetCDNAuthTokenResponse(packet *steammsg.Packet) ([]Event, error) {
-	var decoder = &steammsg.ProtoPacketDecoder[*steampb.CMsgClientGetCDNAuthTokenResponse]{
-		Body: new(steampb.CMsgClientGetCDNAuthTokenResponse),
-	}
-	if err := decoder.Decode(packet); err != nil {
+	body := new(steampb.CMsgClientGetCDNAuthTokenResponse)
+	if _, err := steammsg.DecodePacket(packet, body); err != nil {
 		return nil, err
 	}
 	return []Event{
 		MakeEvent(EventType_State, EventCallback{
 			JobId:   steam.JobId(packet.Header().GetTargetJobId()),
-			Payload: decoder.Body,
+			Payload: body,
 		}),
 	}, nil
 }

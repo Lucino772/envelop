@@ -37,13 +37,11 @@ func (handler *SteamContentHandler) GetManifestRequestCode(conn Connection, depo
 		return 0, err
 	}
 
-	var decoder = &steammsg.ProtoPacketDecoder[*steampb.CContentServerDirectory_GetManifestRequestCode_Response]{
-		Body: new(steampb.CContentServerDirectory_GetManifestRequestCode_Response),
-	}
-	if err := decoder.Decode(response.Packet); err != nil {
+	body := new(steampb.CContentServerDirectory_GetManifestRequestCode_Response)
+	if _, err := steammsg.DecodePacket(response.Packet, body); err != nil {
 		return 0, err
 	}
-	return decoder.Body.GetManifestRequestCode(), nil
+	return body.GetManifestRequestCode(), nil
 }
 
 func (handler *SteamContentHandler) GetServersForSteamPipe(conn Connection, cellId uint32) ([]*steampb.CContentServerDirectory_ServerInfo, error) {
@@ -57,13 +55,11 @@ func (handler *SteamContentHandler) GetServersForSteamPipe(conn Connection, cell
 		return nil, err
 	}
 
-	var decoder = &steammsg.ProtoPacketDecoder[*steampb.CContentServerDirectory_GetServersForSteamPipe_Response]{
-		Body: new(steampb.CContentServerDirectory_GetServersForSteamPipe_Response),
-	}
-	if err := decoder.Decode(response.Packet); err != nil {
+	body := new(steampb.CContentServerDirectory_GetServersForSteamPipe_Response)
+	if _, err := steammsg.DecodePacket(response.Packet, body); err != nil {
 		return nil, err
 	}
-	return decoder.Body.Servers, nil
+	return body.GetServers(), nil
 }
 
 func (handler *SteamContentHandler) GetCDNAuthToken(conn Connection, appId uint32, depotId uint32, cdnHostname string) (string, error) {
@@ -81,11 +77,9 @@ func (handler *SteamContentHandler) GetCDNAuthToken(conn Connection, appId uint3
 		return "", err
 	}
 
-	var decoder = &steammsg.ProtoPacketDecoder[*steampb.CContentServerDirectory_GetCDNAuthToken_Response]{
-		Body: new(steampb.CContentServerDirectory_GetCDNAuthToken_Response),
-	}
-	if err := decoder.Decode(response.Packet); err != nil {
+	body := new(steampb.CContentServerDirectory_GetCDNAuthToken_Response)
+	if _, err := steammsg.DecodePacket(response.Packet, body); err != nil {
 		return "", err
 	}
-	return decoder.Body.GetToken(), nil
+	return body.GetToken(), nil
 }

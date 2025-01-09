@@ -69,32 +69,26 @@ func (p *Packet) Bytes() []byte {
 	return buf.Bytes()
 }
 
-type PacketDecoder[Body_T io.ReaderFrom] struct {
-	Body    Body_T
-	Payload []byte
-}
-
-func (decoder *PacketDecoder[T]) Decode(packet *Packet) error {
-	tempBuf := bytes.NewBuffer(packet.buf.Bytes())
-
-	_, err := decoder.Body.ReadFrom(tempBuf)
-	if err != nil {
-		return err
+func DecodePacket(packet *Packet, body any) ([]byte, error) {
+	switch _body := body.(type) {
+	case proto.Message:
+		if !packet.IsProto() {
+			return nil, errors.New("got non-protobuf packet, expected protobuf")
+		}
+		return nil, proto.Unmarshal(packet.buf.Bytes(), _body)
+	case io.ReaderFrom:
+		if packet.IsProto() {
+			return nil, errors.New("got protobuf packet, expected non-protobuf")
+		}
+		tempBuf := bytes.NewBuffer(packet.buf.Bytes())
+		_, err := _body.ReadFrom(tempBuf)
+		if err != nil {
+			return nil, err
+		}
+		return io.ReadAll(tempBuf)
+	default:
+		return nil, errors.New("incomptabile packet body")
 	}
-	data, err := io.ReadAll(tempBuf)
-	if err != nil {
-		return err
-	}
-	decoder.Payload = data
-	return nil
-}
-
-type ProtoPacketDecoder[Body_T proto.Message] struct {
-	Body Body_T
-}
-
-func (decoder *ProtoPacketDecoder[T]) Decode(packet *Packet) error {
-	return proto.Unmarshal(packet.buf.Bytes(), decoder.Body)
 }
 
 func EncodePacket(header PacketHeader, body any, payload []byte) (*Packet, error) {

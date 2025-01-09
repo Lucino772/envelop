@@ -73,15 +73,13 @@ func (layer *packetLayer) ProcessOutgoing(events []Event) ([]Event, error) {
 }
 
 func (layer *packetLayer) handleMulti(packet *steammsg.Packet) ([]Event, error) {
-	var decoder = &steammsg.ProtoPacketDecoder[*steampb.CMsgMulti]{
-		Body: new(steampb.CMsgMulti),
-	}
-	if err := decoder.Decode(packet); err != nil {
+	body := new(steampb.CMsgMulti)
+	if _, err := steammsg.DecodePacket(packet, body); err != nil {
 		return nil, err
 	}
 
-	payload := decoder.Body.GetMessageBody()
-	if decoder.Body.GetSizeUnzipped() > 0 {
+	payload := body.GetMessageBody()
+	if body.GetSizeUnzipped() > 0 {
 		uncompressed, err := steam.UncompressGzip(payload)
 		if err != nil {
 			return nil, err

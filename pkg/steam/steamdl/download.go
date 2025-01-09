@@ -6,6 +6,7 @@ import (
 	"strconv"
 	"time"
 
+	"github.com/Lucino772/envelop/pkg/steam/steamcdn"
 	"github.com/Lucino772/envelop/pkg/steam/steamcm"
 	"github.com/Lucino772/envelop/pkg/steam/steampb"
 	"github.com/Lucino772/envelop/pkg/steam/steamvdf"
@@ -140,7 +141,7 @@ func (client *SteamDownloadClient) GetDepotInfo(appInfo *steampb.CMsgClientPICSP
 	}, nil
 }
 
-func (client *SteamDownloadClient) DownloadDepotManifest(depotInfo *DepotInfo) (*steamcm.DepotManifest, error) {
+func (client *SteamDownloadClient) DownloadDepotManifest(depotInfo *DepotInfo) (*steamcdn.DepotManifest, error) {
 	manifestRequestCode, err := client.content.GetManifestRequestCode(
 		client.conn,
 		depotInfo.DepotId,
@@ -151,7 +152,7 @@ func (client *SteamDownloadClient) DownloadDepotManifest(depotInfo *DepotInfo) (
 	if err != nil {
 		return nil, err
 	}
-	return steamcm.NewCDNClient().DownloadManifest(
+	return steamcdn.NewClient().DownloadManifest(
 		"fastly.cdn.steampipe.steamcontent.com",
 		depotInfo.DepotId,
 		depotInfo.ManifestId,
@@ -169,8 +170,8 @@ func (client *SteamDownloadClient) GetCDNAuthToken(appId uint32, depotId uint32)
 	)
 }
 
-func (client *SteamDownloadClient) DownloadDepotChunk(depotInfo *DepotInfo, chunk steamcm.ChunkData, cdnAuthToken string) (*steamcm.DepotChunk, error) {
-	return steamcm.NewCDNClient().DownloadDepotChunk(
+func (client *SteamDownloadClient) DownloadDepotChunk(depotInfo *DepotInfo, chunk steamcdn.ChunkData, cdnAuthToken string) (*steamcdn.DepotChunk, error) {
+	return steamcdn.NewClient().DownloadDepotChunk(
 		"fastly.cdn.steampipe.steamcontent.com",
 		depotInfo.DepotId,
 		chunk,

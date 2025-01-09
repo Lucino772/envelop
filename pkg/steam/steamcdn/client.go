@@ -1,4 +1,4 @@
-package steamcm
+package steamcdn
 
 import (
 	"encoding/hex"
@@ -8,10 +8,25 @@ import (
 	"net/url"
 )
 
-type cdnClient struct{}
+type ClientOptFunc func(*cdnClient)
+type cdnClient struct {
+	httpClient *http.Client
+}
 
-func NewCDNClient() *cdnClient {
-	return &cdnClient{}
+func NewClient(opts ...ClientOptFunc) *cdnClient {
+	client := &cdnClient{
+		httpClient: http.DefaultClient,
+	}
+	for _, opt := range opts {
+		opt(client)
+	}
+	return client
+}
+
+func WithHttpClient(httpClient *http.Client) ClientOptFunc {
+	return func(c *cdnClient) {
+		c.httpClient = httpClient
+	}
 }
 
 func (client *cdnClient) DownloadManifest(server string, depotId uint32, manifestId uint64, manifestRequestCode uint64, depotKey []byte) (*DepotManifest, error) {
@@ -51,7 +66,7 @@ func (client *cdnClient) doCommand(uri url.URL) ([]byte, error) {
 	if err != nil {
 		return nil, err
 	}
-	response, err := http.DefaultClient.Do(request)
+	response, err := client.httpClient.Do(request)
 	if err != nil {
 		return nil, err
 	}

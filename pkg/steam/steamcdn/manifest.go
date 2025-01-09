@@ -1,4 +1,4 @@
-package steamcm
+package steamcdn
 
 import (
 	"archive/zip"

@@ -55,7 +55,7 @@ func NewSteamConnection(handlers ...Handler) *SteamConnection {
 }
 
 func (conn *SteamConnection) Connect() error {
-	s := new(Servers)
+	s := NewServers()
 	if err := s.Update(); err != nil {
 		return err
 	}

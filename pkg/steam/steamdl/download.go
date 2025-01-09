@@ -4,6 +4,7 @@ import (
 	"errors"
 	"slices"
 	"strconv"
+	"sync"
 	"time"
 
 	"github.com/Lucino772/envelop/pkg/steam/steamcdn"
@@ -22,11 +23,20 @@ type DepotInfo struct {
 
 type SteamDownloadClient struct {
 	conn *steamcm.SteamConnection
+	mu   sync.Mutex
 
 	// Handlers
 	user    *steamcm.SteamUserHandler
 	apps    *steamcm.SteamAppsHandler
 	content *steamcm.SteamContentHandler
+
+	// CDN
+	cdnServers        []*steampb.CContentServerDirectory_ServerInfo
+	cdnAuthTokenCache map[struct {
+		appId   uint32
+		depotId uint32
+		cdnHost string
+	}]string
 }
 
 func NewSteamDownloadClient() *SteamDownloadClient {
@@ -43,10 +53,16 @@ func NewSteamDownloadClient() *SteamDownloadClient {
 		content,
 	)
 	return &SteamDownloadClient{
-		conn:    conn,
-		user:    user,
-		apps:    apps,
-		content: content,
+		conn:       conn,
+		user:       user,
+		apps:       apps,
+		content:    content,
+		cdnServers: make([]*steampb.CContentServerDirectory_ServerInfo, 0),
+		cdnAuthTokenCache: make(map[struct {
+			appId   uint32
+			depotId uint32
+			cdnHost string
+		}]string),
 	}
 }
 
@@ -60,6 +76,23 @@ func (client *SteamDownloadClient) Connect() error {
 
 func (client *SteamDownloadClient) LogInAnonymously() (*steampb.CMsgClientLogonResponse, error) {
 	return client.user.LogInAnonymously(client.conn)
+}
+
+func (client *SteamDownloadClient) RefreshSteamPipeServers() error {
+	client.mu.Lock()
+	defer client.mu.Unlock()
+
+	servers, err := client.content.GetServersForSteamPipe(client.conn, 0)
+	if err != nil {
+		return err
+	}
+	client.cdnServers = make([]*steampb.CContentServerDirectory_ServerInfo, 0)
+	for _, server := range servers {
+		if server.GetType() == "SteamCache" {
+			client.cdnServers = append(client.cdnServers, server)
+		}
+	}
+	return nil
 }
 
 func (client *SteamDownloadClient) GetApplicationInfo(appId uint32) (*steampb.CMsgClientPICSProductInfoResponse_AppInfo, error) {
@@ -142,6 +175,11 @@ func (client *SteamDownloadClient) GetDepotInfo(appInfo *steampb.CMsgClientPICSP
 }
 
 func (client *SteamDownloadClient) DownloadDepotManifest(depotInfo *DepotInfo) (*steamcdn.DepotManifest, error) {
+	cdnServer, err := client.pickNextSteamPipeServer()
+	if err != nil {
+		return nil, err
+	}
+
 	manifestRequestCode, err := client.content.GetManifestRequestCode(
 		client.conn,
 		depotInfo.DepotId,
@@ -152,8 +190,9 @@ func (client *SteamDownloadClient) DownloadDepotManifest(depotInfo *DepotInfo) (
 	if err != nil {
 		return nil, err
 	}
+
 	return steamcdn.NewClient().DownloadManifest(
-		"fastly.cdn.steampipe.steamcontent.com",
+		cdnServer.GetHost(),
 		depotInfo.DepotId,
 		depotInfo.ManifestId,
 		manifestRequestCode,
@@ -161,23 +200,73 @@ func (client *SteamDownloadClient) DownloadDepotManifest(depotInfo *DepotInfo) (
 	)
 }
 
-func (client *SteamDownloadClient) GetCDNAuthToken(appId uint32, depotId uint32) (string, error) {
-	return client.content.GetCDNAuthToken(
-		client.conn,
-		appId,
-		depotId,
-		"fastly.cdn.steampipe.steamcontent.com",
-	)
-}
+func (client *SteamDownloadClient) DownloadDepotChunk(depotInfo *DepotInfo, chunk steamcdn.ChunkData) (*steamcdn.DepotChunk, error) {
+	cdnServer, err := client.pickNextSteamPipeServer()
+	if err != nil {
+		return nil, err
+	}
+	cdnToken, err := client.getCDNAuthToken(depotInfo.AppId, depotInfo.DepotId, cdnServer.GetHost())
+	if err != nil {
+		return nil, err
+	}
 
-func (client *SteamDownloadClient) DownloadDepotChunk(depotInfo *DepotInfo, chunk steamcdn.ChunkData, cdnAuthToken string) (*steamcdn.DepotChunk, error) {
 	return steamcdn.NewClient().DownloadDepotChunk(
-		"fastly.cdn.steampipe.steamcontent.com",
+		cdnServer.GetHost(),
 		depotInfo.DepotId,
 		chunk,
 		depotInfo.DecryptionKey,
-		cdnAuthToken,
+		cdnToken,
 	)
+}
+
+func (client *SteamDownloadClient) pickNextSteamPipeServer() (*steampb.CContentServerDirectory_ServerInfo, error) {
+	client.mu.Lock()
+	defer client.mu.Unlock()
+
+	if len(client.cdnServers) == 0 {
+		return nil, errors.New("steam pipe servers list is empty")
+	}
+	server := client.cdnServers[0]
+	client.cdnServers = append(client.cdnServers[1:], server)
+	return server, nil
+}
+
+func (client *SteamDownloadClient) getCDNAuthToken(appId uint32, depotId uint32, cdnHostname string) (string, error) {
+	client.mu.Lock()
+	defer client.mu.Unlock()
+
+	cdnToken, ok := client.cdnAuthTokenCache[struct {
+		appId   uint32
+		depotId uint32
+		cdnHost string
+	}{
+		appId:   appId,
+		depotId: depotId,
+		cdnHost: cdnHostname,
+	}]
+	if ok {
+		return cdnToken, nil
+	}
+
+	cdnToken, err := client.content.GetCDNAuthToken(
+		client.conn,
+		appId,
+		depotId,
+		cdnHostname,
+	)
+	if err != nil {
+		return "", err
+	}
+	client.cdnAuthTokenCache[struct {
+		appId   uint32
+		depotId uint32
+		cdnHost string
+	}{
+		appId:   appId,
+		depotId: depotId,
+		cdnHost: cdnHostname,
+	}] = cdnToken
+	return cdnToken, nil
 }
 
 func (client *SteamDownloadClient) getDepotManifestId(appInfo *steampb.CMsgClientPICSProductInfoResponse_AppInfo, depotId uint32, branch string) (uint64, uint32, error) {

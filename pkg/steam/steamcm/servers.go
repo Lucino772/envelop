@@ -24,6 +24,10 @@ type Servers struct {
 	records []*ServerRecord
 }
 
+func NewServers() *Servers {
+	return &Servers{records: make([]*ServerRecord, 0)}
+}
+
 func (s *Servers) Records() []*ServerRecord {
 	return s.records
 }
@@ -50,15 +54,15 @@ func (s *Servers) fetchFromWebApi(cellId int, maxCnt int) error {
 	type serverResponse struct {
 		Response struct {
 			ServerList []struct {
-				Endpoint       string `json:"endpoint,omitempty"`
-				LegacyEndpoint string `json:"legacy_endpoint,omitempty"`
-				Type           string `json:"type,omitempty"`
-				DataCenter     string `json:"dc,omitempty"`
-				Realm          string `json:"realm,omitempty"`
-				Load           uint32 `json:"load,omitempty"`
-				WeightedLoad   string `json:"wtd_load,omitempty"`
+				Endpoint       string  `json:"endpoint,omitempty"`
+				LegacyEndpoint string  `json:"legacy_endpoint,omitempty"`
+				Type           string  `json:"type,omitempty"`
+				DataCenter     string  `json:"dc,omitempty"`
+				Realm          string  `json:"realm,omitempty"`
+				Load           uint32  `json:"load,omitempty"`
+				WeightedLoad   float32 `json:"wtd_load,omitempty"`
 			} `json:"serverlist,omitempty"`
-			Success string `json:"success,omitempty"`
+			Success bool   `json:"success,omitempty"`
 			Message string `json:"message,omitempty"`
 		} `json:"response,omitempty"`
 	}
@@ -81,13 +85,13 @@ func (s *Servers) fetchFromWebApi(cellId int, maxCnt int) error {
 		return err
 	}
 
-	if serverResp.Response.Success != "true" {
+	if !serverResp.Response.Success {
 		return errors.New("invalid response type")
 	}
 
 	records := make([]*ServerRecord, 0)
 	for _, value := range serverResp.Response.ServerList {
-		if value.Type == "netfliter" {
+		if value.Type == "netfilter" {
 			record, err := s.parseIpEndpoint(value.Endpoint)
 			if err != nil {
 				return err

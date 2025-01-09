@@ -41,6 +41,9 @@ func (d *Downloader) Initialize() error {
 		if logInResult.GetEresult() != int32(steamlang.EResult_OK) {
 			return errors.New("failed to intialize downloader")
 		}
+		if err := d.steamClient.RefreshSteamPipeServers(); err != nil {
+			return err
+		}
 		return nil
 	}
 	return nil

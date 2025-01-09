@@ -75,14 +75,9 @@ func (s *SteamSource) GetMetadata(ctx context.Context, dl *Downloader) (Metadata
 		if err != nil {
 			return nil, err
 		}
-		cdnToken, err := client.GetCDNAuthToken(depotInfo.AppId, depotInfo.DepotId)
-		if err != nil {
-			return nil, err
-		}
 		depotsMetadatas = append(depotsMetadatas, steamSourceDepotMetadata{
 			depotInfo:     depotInfo,
 			depotManifest: depotManifest,
-			cdnToken:      cdnToken,
 		})
 	}
 
@@ -104,7 +99,6 @@ type SteamSourceMetadata struct {
 type steamSourceDepotMetadata struct {
 	depotInfo     *steamdl.DepotInfo
 	depotManifest *steamcdn.DepotManifest
-	cdnToken      string
 }
 
 func (metadata *SteamSourceMetadata) GetExports() map[string]any {
@@ -149,7 +143,6 @@ func (metadata *SteamSourceMetadata) Install(ctx context.Context, pool pond.Pool
 						chunkData, err := dl.GetSteamClient().DownloadDepotChunk(
 							depot.depotInfo,
 							chunk,
-							depot.cdnToken,
 						)
 						if err != nil {
 							return err

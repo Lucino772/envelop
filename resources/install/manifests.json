@@ -39,7 +39,8 @@
                 "type": "steam",
                 "appId": 896660,
                 "exports": {
-                    "exe": "{{ .Destination }}/valheim_server.exe"
+                    "exe": "{{ .Destination }}/valheim_server.exe",
+                    "save": "{{ .Destination }}/envelop_world"
                 }
             }
         ],

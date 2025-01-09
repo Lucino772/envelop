@@ -7,7 +7,7 @@ process:
     -port 2456
     -world "Dedicated"
     -password "secret"
-    -savedir {{ .Destination }}/envelop_world
+    -savedir {{ .Save }}
     -public 0
   environment:
     SteamAppId: "892970"

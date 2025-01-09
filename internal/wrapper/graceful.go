@@ -12,7 +12,7 @@ func NewGracefulStopper(name string, options map[string]any) Stopper {
 			return w.WriteStdin(command)
 		}
 	case "signal":
-		sig := options["signal"].(syscall.Signal)
+		sig := syscall.Signal(options["signal"].(int))
 		return func(w Wrapper) error {
 			return w.SendSignal(sig)
 		}

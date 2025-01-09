@@ -5,16 +5,19 @@ import (
 	"fmt"
 	"log"
 	"net"
+	"net/http"
 	"net/url"
+	"slices"
 	"strconv"
 	"strings"
 
-	"github.com/Lucino772/envelop/pkg/steam/steamweb"
+	"github.com/Lucino772/envelop/pkg/steam/steamapi"
 )
 
 type ServerRecord struct {
 	Host string
 	Port uint16
+	Load uint32
 }
 
 type Servers struct {
@@ -35,40 +38,68 @@ func (s *Servers) Update() error {
 	return nil
 }
 
+func (s *Servers) PickServer() *ServerRecord {
+	if len(s.records) == 0 {
+		return nil
+	}
+	return s.records[0]
+}
+
 func (s *Servers) fetchFromWebApi(cellId int, maxCnt int) error {
-	client := steamweb.NewClient()
+	client := steamapi.NewClient()
 	type serverResponse struct {
 		Response struct {
-			ServerList   []string `json:"serverlist,omitempty"`
-			ServerListWs []string `json:"serverlist_websockets,omitempty"`
-			Result       int      `json:"result,omitempty"`
-			Message      string   `json:"message,omitempty"`
+			ServerList []struct {
+				Endpoint       string `json:"endpoint,omitempty"`
+				LegacyEndpoint string `json:"legacy_endpoint,omitempty"`
+				Type           string `json:"type,omitempty"`
+				DataCenter     string `json:"dc,omitempty"`
+				Realm          string `json:"realm,omitempty"`
+				Load           uint32 `json:"load,omitempty"`
+				WeightedLoad   string `json:"wtd_load,omitempty"`
+			} `json:"serverlist,omitempty"`
+			Success string `json:"success,omitempty"`
+			Message string `json:"message,omitempty"`
 		} `json:"response,omitempty"`
 	}
 
 	var params = make(url.Values)
 	params.Add("cellid", fmt.Sprint(cellId))
 	params.Add("maxcount", fmt.Sprint(maxCnt))
-	var u = client.Url("ISteamDirectory", "GetCMList", 1, params)
 
-	var serverResp serverResponse
-	if err := client.CallJson(u, &serverResp); err != nil {
+	request, err := http.NewRequest(
+		"GET",
+		client.Url("ISteamDirectory", "GetCMListForConnect", 1, params).String(),
+		nil,
+	)
+	if err != nil {
 		return err
 	}
 
-	if serverResp.Response.Result != 1 {
+	var serverResp serverResponse
+	if err := client.DoJson(request, &serverResp); err != nil {
+		return err
+	}
+
+	if serverResp.Response.Success != "true" {
 		return errors.New("invalid response type")
 	}
 
 	records := make([]*ServerRecord, 0)
 	for _, value := range serverResp.Response.ServerList {
-		record, err := s.parseIpEndpoint(value)
-		if err != nil {
-			return err
+		if value.Type == "netfliter" {
+			record, err := s.parseIpEndpoint(value.Endpoint)
+			if err != nil {
+				return err
+			}
+			record.Load = value.Load
+			records = append(records, record)
 		}
-		records = append(records, record)
 	}
 	s.records = records
+	slices.SortFunc(s.records, func(a *ServerRecord, b *ServerRecord) int {
+		return int(a.Load) - int(b.Load)
+	})
 	return nil
 }
 
@@ -83,6 +114,7 @@ func (s *Servers) fetchFromDns() error {
 		s.records = append(s.records, &ServerRecord{
 			Host: ip,
 			Port: 27017,
+			Load: 0,
 		})
 	}
 	s.records = records

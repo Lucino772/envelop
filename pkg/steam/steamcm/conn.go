@@ -59,8 +59,7 @@ func (conn *SteamConnection) Connect() error {
 	if err := s.Update(); err != nil {
 		return err
 	}
-	server := s.Records()[0]
-
+	server := s.PickServer()
 	tcpConn, err := net.Dial("tcp", fmt.Sprintf("%s:%d", server.Host, server.Port))
 	if err != nil {
 		return err

@@ -6,8 +6,8 @@ import (
 	"net"
 	"time"
 
+	"github.com/Lucino772/envelop/internal/protocols/query"
 	"github.com/Lucino772/envelop/internal/wrapper"
-	"github.com/Lucino772/envelop/pkg/minecraft/query"
 	"golang.org/x/sync/errgroup"
 )
 
@@ -27,7 +27,7 @@ func (task *fetchMinecraftPlayersTask) Run(ctx context.Context, wp wrapper.Wrapp
 		return errors.New("query is not enabled")
 	}
 
-	result := make(chan *query.QueryStats)
+	result := make(chan query.MinecraftUT3QueryStats)
 	defer close(result)
 
 	var d net.Dialer
@@ -39,8 +39,8 @@ func (task *fetchMinecraftPlayersTask) Run(ctx context.Context, wp wrapper.Wrapp
 			return err
 		}
 		wg.Go(func() error {
-			stats, err := query.GetStats(conn)
-			if err != nil {
+			var stats query.MinecraftUT3QueryStats
+			if err := query.QueryMinecraftStatsUT3(conn, &stats); err != nil {
 				return err
 			}
 			result <- stats
@@ -50,13 +50,11 @@ func (task *fetchMinecraftPlayersTask) Run(ctx context.Context, wp wrapper.Wrapp
 		case <-ctx.Done():
 			conn.Close()
 		case stats := <-result:
-			if stats != nil {
-				wp.UpdateState(wrapper.PlayerState{
-					Count:   int(stats.NumPlayers),
-					Max:     int(stats.MaxPlayers),
-					Players: stats.Players,
-				})
-			}
+			wp.UpdateState(wrapper.PlayerState{
+				Count:   int(stats.NumPlayers),
+				Max:     int(stats.MaxPlayers),
+				Players: stats.Players,
+			})
 		}
 		if err := wg.Wait(); err != nil {
 			return err

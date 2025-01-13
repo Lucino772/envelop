@@ -17,21 +17,18 @@ import (
 	"github.com/alitto/pond/v2"
 )
 
-type SteamSource struct {
-	Type        string         `mapstructure:"type,omitempty"`
-	Destination string         `mapstructure:"destination,omitempty"`
-	Exports     map[string]any `mapstructure:"exports,omitempty"`
-	AppId       uint32         `mapstructure:"appId,omitempty"`
+type SteamDepotManifest struct {
+	AppId uint32 `mapstructure:"appid,omitempty"`
 }
 
-func (s *SteamSource) GetDownloaderOptions() []DownloaderOptFunc {
+func (manifest *SteamDepotManifest) GetDownloaderOptions() []DownloaderOptFunc {
 	return []DownloaderOptFunc{WithSteamClient()}
 }
 
-func (s *SteamSource) GetMetadata(ctx context.Context, dl *Downloader) (Metadata, error) {
+func (manifest *SteamDepotManifest) GetMetadata(ctx context.Context, dl *Downloader, path string) (Metadata, error) {
 	client := dl.GetSteamClient()
 
-	appInfo, err := client.GetApplicationInfo(s.AppId)
+	appInfo, err := client.GetApplicationInfo(manifest.AppId)
 	if err != nil {
 		return nil, err
 	}
@@ -82,10 +79,9 @@ func (s *SteamSource) GetMetadata(ctx context.Context, dl *Downloader) (Metadata
 	}
 
 	return &SteamSourceMetadata{
-		AppId:       s.AppId,
-		Destination: filepath.Join(dl.GetConfig().InstallDir, s.Destination),
+		AppId:       manifest.AppId,
+		Destination: path,
 		Depots:      depotsMetadatas,
-		Exports:     s.Exports,
 	}, nil
 }
 
@@ -93,19 +89,11 @@ type SteamSourceMetadata struct {
 	AppId       uint32
 	Destination string
 	Depots      []steamSourceDepotMetadata
-	Exports     map[string]any
 }
 
 type steamSourceDepotMetadata struct {
 	depotInfo     *steamdl.DepotInfo
 	depotManifest *steamcdn.DepotManifest
-}
-
-func (metadata *SteamSourceMetadata) GetExports() map[string]any {
-	data := struct{ Destination string }{
-		Destination: metadata.Destination,
-	}
-	return parseExports(metadata.Exports, data)
 }
 
 func (metadata *SteamSourceMetadata) Install(ctx context.Context, pool pond.Pool, dl *Downloader) (Waiter, error) {

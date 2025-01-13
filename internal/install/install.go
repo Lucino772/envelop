@@ -2,128 +2,113 @@ package install
 
 import (
 	_ "embed"
+	"log"
+	"path/filepath"
+	"slices"
+	"text/template"
 
 	"context"
-	"encoding/json"
 	"errors"
 	"os"
-	"path/filepath"
-	"reflect"
-	"text/template"
 
 	"github.com/Lucino772/envelop/pkg/download"
 	"github.com/alitto/pond/v2"
-	"github.com/mitchellh/mapstructure"
-	"github.com/xeipuuv/gojsonschema"
 	"golang.org/x/sync/errgroup"
+	"gopkg.in/yaml.v3"
 )
 
 var ErrManifestNotExists = errors.New("manifest does not exists")
 
-//go:embed data/manifest-spec.json
-var manifestSchema string
-
-type Installer struct {
-	manifestUrl  string
-	manifestPath string
-}
+type Installer struct{}
 
 func NewInstaller() (*Installer, error) {
-	userCacheDir, err := os.UserCacheDir()
+	return &Installer{}, nil
+}
+
+func (i *Installer) GetManifest(ctx context.Context, uri string) (*Manifest, error) {
+	outFile, err := os.CreateTemp("", "")
+	if err != nil {
+		return nil, err
+	}
+	outFile.Close()
+	defer os.Remove(outFile.Name())
+
+	dl := download.NewDownloader(uri, outFile.Name())
+	if err := dl.Download(ctx); err != nil {
+		return nil, err
+	}
+
+	manifestData, err := os.ReadFile(outFile.Name())
 	if err != nil {
 		return nil, err
 	}
 
-	return &Installer{
-		manifestUrl:  "https://raw.githubusercontent.com/Lucino772/envelop/main/resources/install/manifests.json",
-		manifestPath: filepath.Join(userCacheDir, "envelop", "manifests.json"),
-	}, nil
-}
-
-func (i *Installer) CheckManifestsAvailable() error {
-	if _, err := os.Stat(i.manifestPath); err != nil {
-		return err
-	}
-	return nil
-}
-
-func (i *Installer) UpdateManifests(ctx context.Context) error {
-	cacheDir := filepath.Dir(i.manifestPath)
-	if _, err := os.Stat(cacheDir); err != nil {
-		os.MkdirAll(cacheDir, os.ModePerm)
-	}
-	dl := download.NewDownloader(i.manifestUrl, i.manifestPath)
-	return dl.Download(ctx)
-}
-
-func (i *Installer) GetManifest(id string) (*Manifest, error) {
-	if err := i.CheckManifestsAvailable(); err != nil {
+	var manifestMap map[string]any
+	if err := yaml.Unmarshal(manifestData, &manifestMap); err != nil {
 		return nil, err
 	}
-	manifestData, err := os.ReadFile(i.manifestPath)
-	if err != nil {
-		return nil, err
-	}
-
-	var manifests map[string]map[string]any
-	if err := json.Unmarshal(manifestData, &manifests); err != nil {
-		return nil, err
-	}
-
-	data, ok := manifests[id]
-	if !ok {
-		return nil, ErrManifestNotExists
-	}
-	if err := validateManifest(data); err != nil {
+	if err := validateManifest(manifestMap); err != nil {
 		return nil, err
 	}
 
 	var manifest Manifest
-	var decoderMD mapstructure.Metadata
-	decoderConfig := &mapstructure.DecoderConfig{
-		Metadata:   &decoderMD,
-		DecodeHook: manifestDecodeHook,
-		TagName:    "mapstructure",
-		Result:     &manifest,
-	}
-	decoder, err := mapstructure.NewDecoder(decoderConfig)
-	if err != nil {
-		return nil, err
-	}
-	if err := decoder.Decode(data); err != nil {
+	if _, err := decode(manifestMap, &manifest); err != nil {
 		return nil, err
 	}
 	return &manifest, nil
 }
 
 func (i *Installer) Install(ctx context.Context, m *Manifest, config DownloadConfig) error {
+	depots := make([]Depot, 0)
+	exports := make(map[string]any, 0)
+
 	var dlOptions []DownloaderOptFunc
 	dlOptions = append(dlOptions, WithDownloadConfig(config))
-	for _, source := range m.Sources {
-		dlOptions = append(dlOptions, source.GetDownloaderOptions()...)
+	for _, depot := range m.Depots {
+		if !slices.Contains(depot.Config.Os, "*") && !slices.Contains(depot.Config.Os, config.TargetOs) {
+			continue
+		}
+		if !slices.Contains(depot.Config.Arch, "*") && !slices.Contains(depot.Config.Arch, config.TargetArch) {
+			continue
+		}
+		depot.Path = filepath.ToSlash(filepath.Join(config.InstallDir, depot.Path))
+
+		vars := struct {
+			Path       string
+			TargetOs   string
+			TargetArch string
+		}{
+			Path:       depot.Path,
+			TargetOs:   config.TargetOs,
+			TargetArch: config.TargetArch,
+		}
+		for key, val := range parseExports(depot.Exports, vars) {
+			exports[key] = val
+		}
+		log.Println(exports)
+
+		dlOptions = append(dlOptions, depot.Manifest.GetDownloaderOptions()...)
+		depots = append(depots, depot)
 	}
+
 	downloader := NewDownloader(dlOptions...)
 	if err := downloader.Initialize(); err != nil {
 		return err
 	}
 
-	exports := make(map[string]any, 0)
 	metadatas := make([]Metadata, 0)
-	for _, source := range m.Sources {
-		metadata, err := source.GetMetadata(ctx, downloader)
+	for _, depot := range depots {
+		metadata, err := depot.Manifest.GetMetadata(ctx, downloader, depot.Path)
 		if err != nil {
 			return err
 		}
 		if metadata != nil {
-			for key, val := range metadata.GetExports() {
-				exports[key] = val
-			}
 			metadatas = append(metadatas, metadata)
 		}
 	}
 
 	errg, errCtx := errgroup.WithContext(ctx)
-	workerPool := pond.NewPool(10, pond.WithContext(errCtx))
+	workerPool := pond.NewPool(12, pond.WithContext(errCtx))
 	for _, metadata := range metadatas {
 		errg.Go(func() error {
 			waiter, err := metadata.Install(errCtx, workerPool, downloader)
@@ -139,46 +124,16 @@ func (i *Installer) Install(ctx context.Context, m *Manifest, config DownloadCon
 		return err
 	}
 
-	// TODO: Cache config file to improve performance
+	// Create config
 	configPath := filepath.Join(config.InstallDir, "envelop.yaml")
-	dl := download.NewDownloader(m.Config, configPath)
-	dl.PostDownloadHook = func(dst string) error {
-		content, err := os.ReadFile(dst)
-		if err != nil {
-			return err
-		}
-		file, err := os.Create(dst)
-		if err != nil {
-			return err
-		}
-		defer file.Close()
-		tmpl, err := template.New(dst).Parse(string(content))
-		if err != nil {
-			return err
-		}
-		return tmpl.Execute(file, exports)
-	}
-	return dl.Download(ctx)
-}
-
-func manifestDecodeHook(typ reflect.Type, target reflect.Type, data any) (any, error) {
-	if typ.Kind() == reflect.Map && target == reflect.TypeOf((*Source)(nil)).Elem() {
-		return decodeSource(data.(map[string]any))
-	}
-	return data, nil
-}
-
-func validateManifest(config map[string]interface{}) error {
-	schemaLoader := gojsonschema.NewStringLoader(manifestSchema)
-	dataLoader := gojsonschema.NewGoLoader(config)
-
-	res, err := gojsonschema.Validate(schemaLoader, dataLoader)
+	configFile, err := os.Create(configPath)
 	if err != nil {
 		return err
 	}
-
-	if !res.Valid() {
-		return errors.New("config is not valid")
+	defer configFile.Close()
+	tmpl, err := template.New(configPath).Parse(m.Config)
+	if err != nil {
+		return err
 	}
-	return nil
+	return tmpl.Execute(configFile, exports)
 }

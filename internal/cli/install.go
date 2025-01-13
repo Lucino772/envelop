@@ -11,21 +11,21 @@ import (
 )
 
 type installOptions struct {
-	Game      string
+	Manifest  string
 	Directory string
 }
 
 func installCommand() *cobra.Command {
 	options := &installOptions{}
 	cmd := &cobra.Command{
-		Use:   "install GAME [DIRECTORY]",
+		Use:   "install MANIFEST [DIRECTORY]",
 		Short: "Install game server",
 		Args: cobra.MatchAll(
 			cobra.MinimumNArgs(1),
 			cobra.MaximumNArgs(2),
 		),
 		PreRunE: func(cmd *cobra.Command, args []string) error {
-			options.Game = args[0]
+			options.Manifest = args[0]
 			if len(args) > 1 {
 				options.Directory = args[1]
 			} else {
@@ -56,11 +56,7 @@ func runInstall(opts *installOptions) (err error) {
 		return err
 	}
 
-	if err := installer.CheckManifestsAvailable(); err != nil {
-		return err
-	}
-
-	manifest, err := installer.GetManifest(opts.Game)
+	manifest, err := installer.GetManifest(context.Background(), opts.Manifest)
 	if err != nil {
 		return err
 	}

@@ -2,97 +2,166 @@
     "$schema": "http://json-schema.org/draft-07/schema#",
     "type": "object",
     "properties": {
-        "sources": {
-            "type": "array",
-            "items": {
-                "oneOf": [
-                    {
-                        "$ref": "#/definitions/http_source"
-                    },
-                    {
-                        "$ref": "#/definitions/base64_source"
-                    },
-                    {
-                        "$ref": "#/definitions/steam_source"
-                    }
-                ],
-                "properties": {
-                    "type": {
-                        "enum": [
-                            "http",
-                            "base64",
-                            "steam"
-                        ]
-                    },
-                    "destination": {
-                        "type": "string"
-                    },
-                    "exports": {
-                        "$ref": "#/definitions/exports"
-                    }
-                },
-                "required": [
-                    "type"
-                ]
-            }
+        "name": {
+            "type": "string"
         },
         "config": {
             "type": "string"
+        },
+        "depots": {
+            "type": "array",
+            "items": {
+                "$ref": "#/definitions/depot"
+            }
         }
     },
     "required": [
-        "sources"
+        "name",
+        "config",
+        "depots"
     ],
     "definitions": {
-        "http_source": {
+        "depot": {
             "type": "object",
             "properties": {
-                "url": {
+                "name": {
                     "type": "string"
                 },
-                "hash": {
+                "path": {
                     "type": "string"
                 },
-                "archive": {
-                    "type": "string"
+                "config": {
+                    "type": "object",
+                    "properties": {
+                        "os": {
+                            "type": "array",
+                            "items": {
+                                "type": "string"
+                            }
+                        },
+                        "arch": {
+                            "type": "array",
+                            "items": {
+                                "type": "string"
+                            }
+                        },
+                        "tags": {
+                            "type": "array",
+                            "items": {
+                                "type": "string"
+                            }
+                        }
+                    }
+                },
+                "exports": {
+                    "type": "object",
+                    "additionalProperties": {
+                        "type": [
+                            "string",
+                            "boolean",
+                            "integer",
+                            "number"
+                        ]
+                    }
+                },
+                "manifest": {
+                    "$ref": "#/definitions/depot_manifest"
                 }
             },
             "required": [
-                "url"
+                "name",
+                "config",
+                "manifest"
             ]
         },
-        "base64_source": {
-            "type": "object",
-            "properties": {
-                "content": {
-                    "type": "string"
+        "depot_manifest": {
+            "oneOf": [
+                {
+                    "type": "object",
+                    "properties": {
+                        "type": {
+                            "const": "files"
+                        },
+                        "files": {
+                            "type": "array",
+                            "items": {
+                                "type": "object",
+                                "properties": {
+                                    "filename": {
+                                        "type": "string"
+                                    },
+                                    "source": {
+                                        "$ref": "#/definitions/source"
+                                    }
+                                },
+                                "required": [
+                                    "filename",
+                                    "source"
+                                ]
+                            }
+                        }
+                    },
+                    "required": [
+                        "type",
+                        "files"
+                    ]
+                },
+                {
+                    "type": "object",
+                    "properties": {
+                        "type": {
+                            "const": "steam"
+                        },
+                        "appid": {
+                            "type": "number"
+                        }
+                    },
+                    "required": [
+                        "type",
+                        "appid"
+                    ]
                 }
-            },
-            "required": [
-                "content"
             ]
         },
-        "steam_source": {
-            "type": "object",
-            "properties": {
-                "appId": {
-                    "type": "integer"
+        "source": {
+            "oneOf": [
+                {
+                    "type": "object",
+                    "properties": {
+                        "type": {
+                            "const": "http"
+                        },
+                        "url": {
+                            "type": "string"
+                        },
+                        "hash": {
+                            "type": "string"
+                        },
+                        "archive": {
+                            "type": "string"
+                        }
+                    },
+                    "required": [
+                        "type",
+                        "url"
+                    ]
+                },
+                {
+                    "type": "object",
+                    "properties": {
+                        "type": {
+                            "const": "base64"
+                        },
+                        "content": {
+                            "type": "string"
+                        }
+                    },
+                    "required": [
+                        "type",
+                        "content"
+                    ]
                 }
-            },
-            "required": [
-                "appId"
             ]
-        },
-        "exports": {
-            "type": "object",
-            "additionalProperties": {
-                "type": [
-                    "string",
-                    "boolean",
-                    "integer",
-                    "number"
-                ]
-            }
         }
     }
 }

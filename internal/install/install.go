@@ -2,8 +2,9 @@ package install
 
 import (
 	_ "embed"
-	"log"
+	"net/url"
 	"path/filepath"
+	"runtime"
 	"slices"
 	"text/template"
 
@@ -17,7 +18,10 @@ import (
 	"gopkg.in/yaml.v3"
 )
 
-var ErrManifestNotExists = errors.New("manifest does not exists")
+var (
+	ErrManifestNotExists            = errors.New("manifest does not exists")
+	ErrRemoteFileSchemeNotSupported = errors.New("file scheme with remote host not supported")
+)
 
 type Installer struct{}
 
@@ -25,20 +29,43 @@ func NewInstaller() (*Installer, error) {
 	return &Installer{}, nil
 }
 
-func (i *Installer) GetManifest(ctx context.Context, uri string) (*Manifest, error) {
-	outFile, err := os.CreateTemp("", "")
+func (i *Installer) GetManifest(ctx context.Context, path string) (*Manifest, error) {
+	uri, err := url.Parse(path)
 	if err != nil {
 		return nil, err
 	}
-	outFile.Close()
-	defer os.Remove(outFile.Name())
 
-	dl := download.NewDownloader(uri, outFile.Name())
-	if err := dl.Download(ctx); err != nil {
-		return nil, err
+	var filename string
+	if uri.Scheme == "file" {
+		if uri.Host != "" {
+			return nil, ErrRemoteFileSchemeNotSupported
+		}
+		filename = uri.Path
+		if runtime.GOOS == "windows" {
+			// URL.Path will contains a / before the drive name on Windows: /C:/Users/...
+			filename = filename[1:]
+		}
+	} else if uri.Scheme == "" {
+		filename, err = filepath.Abs(uri.Path)
+		if err != nil {
+			return nil, err
+		}
+	} else {
+		outFile, err := os.CreateTemp("", "")
+		if err != nil {
+			return nil, err
+		}
+		outFile.Close()
+		defer os.Remove(outFile.Name())
+
+		dl := download.NewDownloader(path, outFile.Name())
+		if err := dl.Download(ctx); err != nil {
+			return nil, err
+		}
+		filename = outFile.Name()
 	}
 
-	manifestData, err := os.ReadFile(outFile.Name())
+	manifestData, err := os.ReadFile(filename)
 	if err != nil {
 		return nil, err
 	}
@@ -85,7 +112,6 @@ func (i *Installer) Install(ctx context.Context, m *Manifest, config DownloadCon
 		for key, val := range parseExports(depot.Exports, vars) {
 			exports[key] = val
 		}
-		log.Println(exports)
 
 		dlOptions = append(dlOptions, depot.Manifest.GetDownloaderOptions()...)
 		depots = append(depots, depot)

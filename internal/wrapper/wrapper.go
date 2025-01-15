@@ -2,7 +2,6 @@ package wrapper
 
 import (
 	"context"
-	"errors"
 	"fmt"
 	"io"
 	"io/fs"
@@ -80,11 +79,7 @@ func Run(ctx context.Context, options *Options) error {
 		NewNamedTask(
 			"events-producer",
 			func(ctx context.Context, _ Wrapper) error {
-				err := eventProducer.Run(ctx)
-				if errors.Is(err, context.Canceled) {
-					return nil
-				}
-				return err
+				return eventProducer.Run(ctx)
 			},
 		),
 	)
@@ -129,23 +124,7 @@ func Run(ctx context.Context, options *Options) error {
 	taskErrGroup.SetLimit(-1)
 
 	for _, task := range options.Tasks {
-		task := task
-		taskErrGroup.Go(func() error {
-			logger := logger.With(slog.String("task", task.Name()))
-			logger.LogAttrs(mainCtx, LevelInfo, "Starting task")
-			err := task.Run(mainCtx, &wrapperCtx)
-			if err != nil {
-				logger.LogAttrs(
-					mainCtx,
-					LevelError,
-					"Task error",
-					slog.Any("error", err),
-				)
-			} else {
-				logger.LogAttrs(mainCtx, LevelInfo, "Task done")
-			}
-			return err
-		})
+		taskErrGroup.Go(makeRecoverableTask(mainCtx, task, logger, &wrapperCtx))
 	}
 
 	mainErrGroup.Go(func() error {

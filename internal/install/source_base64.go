@@ -9,7 +9,7 @@ import (
 )
 
 type Base64Source struct {
-	Content string `mapstructure:"url,omitempty"`
+	Content string `mapstructure:"content,omitempty"`
 }
 
 func (s *Base64Source) GetDownloaderOptions() []DownloaderOptFunc { return nil }

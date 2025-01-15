@@ -6,7 +6,7 @@ import (
 	"net"
 	"time"
 
-	"github.com/Lucino772/envelop/internal/protocols/query"
+	"github.com/Lucino772/envelop/internal/protocols/ut3"
 	"github.com/Lucino772/envelop/internal/wrapper"
 	"golang.org/x/sync/errgroup"
 )
@@ -27,7 +27,7 @@ func (task *fetchMinecraftPlayersTask) Run(ctx context.Context, wp wrapper.Wrapp
 		return errors.New("query is not enabled")
 	}
 
-	result := make(chan query.MinecraftUT3QueryStats)
+	result := make(chan ut3.MinecraftQueryStats)
 	defer close(result)
 
 	var d net.Dialer
@@ -39,8 +39,8 @@ func (task *fetchMinecraftPlayersTask) Run(ctx context.Context, wp wrapper.Wrapp
 			return err
 		}
 		wg.Go(func() error {
-			var stats query.MinecraftUT3QueryStats
-			if err := query.QueryMinecraftStatsUT3(conn, &stats); err != nil {
+			var stats ut3.MinecraftQueryStats
+			if err := ut3.QueryMinecraft(conn, &stats); err != nil {
 				return err
 			}
 			result <- stats

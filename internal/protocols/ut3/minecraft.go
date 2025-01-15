@@ -1,4 +1,4 @@
-package query
+package ut3
 
 import (
 	"bufio"
@@ -8,7 +8,7 @@ import (
 	"time"
 )
 
-type MinecraftUT3QueryStats struct {
+type MinecraftQueryStats struct {
 	Motd       string
 	GameType   string
 	GameId     string
@@ -22,13 +22,13 @@ type MinecraftUT3QueryStats struct {
 	Players    []string
 }
 
-func QueryMinecraftStatsUT3(conn net.Conn, stats *MinecraftUT3QueryStats) error {
+func QueryMinecraft(conn net.Conn, stats *MinecraftQueryStats) error {
 	var sessionId = uint32(time.Now().Unix()) & 0x0F0F0F0F
-	token, err := getUT3ChallengeToken(conn, int32(sessionId))
+	token, err := getChallengeToken(conn, int32(sessionId))
 	if err != nil {
 		return err
 	}
-	if err := sendUT3Query(conn, int32(sessionId), token); err != nil {
+	if err := sendQuery(conn, int32(sessionId), token); err != nil {
 		return err
 	}
 

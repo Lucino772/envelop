@@ -3,7 +3,6 @@ package cli
 import (
 	"context"
 	"errors"
-	"log"
 	"os"
 	"path/filepath"
 
@@ -60,19 +59,10 @@ func runRun(opts *wrapperOptions) (err error) {
 	if err != nil {
 		return err
 	}
+	wrapper.WithForwardProcessLogsToLogger(conf)
+	conf.Dir = opts.Directory
 
-	conf.Options = append(
-		conf.Options,
-		wrapper.WithWorkingDirectory(opts.Directory),
-		wrapper.WithForwardProcessLogsToLogger(),
-	)
-
-	run, err := wrapper.New(conf.Program, conf.Args, conf.Logger, conf.Options...)
-	if err != nil {
-		log.Println("Error while creating wrapper")
-		return err
-	}
-	err = run(context.Background())
+	err = wrapper.Run(context.Background(), conf)
 	if errors.Is(err, context.Canceled) {
 		return nil
 	}

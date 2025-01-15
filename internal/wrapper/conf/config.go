@@ -1,7 +1,9 @@
 package wrapperconf
 
 import (
+	"context"
 	_ "embed"
+	"encoding/json"
 	"errors"
 	"fmt"
 	"log/slog"
@@ -22,13 +24,6 @@ var ErrInvalidWrapperConfig = errors.New("invalid wrapper config")
 
 //go:embed envelop-spec.json
 var configSchema string
-
-type Config struct {
-	Program string
-	Args    []string
-	Options []wrapper.OptFunc
-	Logger  *slog.Logger
-}
 
 type configData struct {
 	Process struct {
@@ -54,7 +49,7 @@ type configData struct {
 	} `yaml:"modules,omitempty"`
 }
 
-func LoadFile(path string) (*Config, error) {
+func LoadFile(path string) (*wrapper.Options, error) {
 	data, err := os.ReadFile(path)
 	if err != nil {
 		return nil, err
@@ -62,7 +57,7 @@ func LoadFile(path string) (*Config, error) {
 	return Load(data)
 }
 
-func Load(source []byte) (*Config, error) {
+func Load(source []byte) (*wrapper.Options, error) {
 	var dict map[string]interface{}
 	yaml.Unmarshal(source, &dict)
 
@@ -74,36 +69,40 @@ func Load(source []byte) (*Config, error) {
 		return nil, err
 	}
 
-	var config Config
+	var options wrapper.Options
 
 	command, err := shlex.Split(data.Process.Command)
 	if err != nil {
 		return nil, err
 	}
-	config.Program = command[0]
-	config.Args = command[1:]
+	options.Program = command[0]
+	options.Args = command[1:]
 
-	config.Options = append(
-		config.Options,
-		wrapper.WithGracefulTimeout(
-			time.Duration(data.Process.Graceful.Timeout)*time.Second,
-		),
-	)
-
-	stopper := wrapper.NewGracefulStopper(data.Process.Graceful.Type, data.Process.Graceful.Options)
-	if stopper != nil {
-		config.Options = append(
-			config.Options,
-			wrapper.WithGracefulStopper(stopper),
-		)
-	}
+	options.Graceful.Timeout = time.Duration(data.Process.Graceful.Timeout) * time.Second
+	options.Graceful.Stopper = wrapper.NewGracefulStopper(data.Process.Graceful.Type, data.Process.Graceful.Options)
 
 	for _, hook := range data.Hooks {
 		h := wrapper.NewHook(hook.Type, hook.Options)
 		if h != nil {
-			config.Options = append(
-				config.Options,
-				wrapper.WithHook(h),
+			// TODO: Add name from hook
+			options.Tasks = append(
+				options.Tasks,
+				wrapper.NewNamedTask(
+					"hook",
+					func(ctx context.Context, wp wrapper.Wrapper) error {
+						sub := wp.SubscribeEvents()
+						defer sub.Close()
+
+						for event := range sub.Receive() {
+							data, err := json.Marshal(event)
+							if err == nil {
+								// TODO: Handle error, log maybe ?
+								_ = h.Execute(ctx, data)
+							}
+						}
+						return nil
+					},
+				),
 			)
 		}
 	}
@@ -114,18 +113,14 @@ func Load(source []byte) (*Config, error) {
 			handlers = append(handlers, handler)
 		}
 	}
-	config.Logger = slog.New(logutils.NewMultiHandler(handlers...))
+	options.Logger = slog.New(logutils.NewMultiHandler(handlers...))
 
 	for _, mod := range data.Modules {
 		if module := modules.NewModule(mod.Name, mod.Options); module != nil {
-			config.Options = append(
-				config.Options,
-				wrapper.WithModule(module),
-			)
+			module(&options)
 		}
 	}
-
-	return &config, nil
+	return &options, nil
 }
 
 func validateConfig(config map[string]interface{}) error {

@@ -114,11 +114,8 @@ func Load(source []byte) (*wrapper.Options, error) {
 		}
 	}
 	options.Logger = slog.New(logutils.NewMultiHandler(handlers...))
-
 	for _, mod := range data.Modules {
-		if module := modules.NewModule(mod.Name, mod.Options); module != nil {
-			module(&options)
-		}
+		modules.InitializeModule(mod.Name, mod.Options, &options)
 	}
 	return &options, nil
 }

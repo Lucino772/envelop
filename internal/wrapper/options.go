@@ -24,7 +24,6 @@ type Wrapper interface {
 }
 
 type Stopper func(Wrapper) error
-type Module = func(*Options)
 
 type Task interface {
 	Name() string

@@ -6,13 +6,11 @@ import (
 	"github.com/Lucino772/envelop/internal/wrapper"
 )
 
-func NewModule(name string, opts map[string]any) wrapper.Module {
+func InitializeModule(name string, opts map[string]any, wrapperOpts *wrapper.Options) {
 	switch name {
 	case "envelop.core":
-		return core.Initialize(opts)
+		core.Initialize(opts, wrapperOpts)
 	case "envelop.minecraft":
-		return minecraft.Initialize(opts)
-	default:
-		return nil
+		minecraft.Initialize(opts, wrapperOpts)
 	}
 }

@@ -13,15 +13,19 @@ import (
 
 type minecraftRconService struct {
 	pb.UnimplementedRconServer
-	wrapper wrapper.Wrapper
 }
 
-func NewMinecraftRconService(w wrapper.Wrapper) *minecraftRconService {
-	return &minecraftRconService{wrapper: w}
+func NewMinecraftRconService() *minecraftRconService {
+	return &minecraftRconService{}
 }
 
 func (service *minecraftRconService) SendCommand(ctx context.Context, req *pb.RconCommand) (*pb.RconResponse, error) {
-	data, err := fs.ReadFile(service.wrapper.Files(), "server.properties")
+	wp, err := wrapper.FromContext(ctx)
+	if err != nil {
+		return nil, err
+	}
+
+	data, err := fs.ReadFile(wp.Files(), "server.properties")
 	if err != nil {
 		return nil, err
 	}

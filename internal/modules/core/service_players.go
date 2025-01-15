@@ -12,16 +12,20 @@ import (
 
 type corePlayersService struct {
 	pb.UnimplementedPlayersServer
-	wrapper wrapper.Wrapper
 }
 
-func NewCorePlayersService(w wrapper.Wrapper) *corePlayersService {
-	return &corePlayersService{wrapper: w}
+func NewCorePlayersService() *corePlayersService {
+	return &corePlayersService{}
 }
 
 func (service *corePlayersService) ListPlayers(ctx context.Context, _ *emptypb.Empty) (*pb.PlayerList, error) {
+	wp, err := wrapper.FromContext(ctx)
+	if err != nil {
+		return nil, err
+	}
+
 	var state wrapper.PlayerState
-	if ok := service.wrapper.ReadState(&state); !ok {
+	if ok := wp.ReadState(&state); !ok {
 		return nil, errors.New("failed to read player state")
 	}
 
@@ -37,7 +41,12 @@ func (service *corePlayersService) ListPlayers(ctx context.Context, _ *emptypb.E
 }
 
 func (service *corePlayersService) StreamPlayers(_ *emptypb.Empty, stream pb.Players_StreamPlayersServer) error {
-	sub := service.wrapper.SubscribeStates()
+	wp, err := wrapper.FromContext(stream.Context())
+	if err != nil {
+		return err
+	}
+
+	sub := wp.SubscribeStates()
 	defer sub.Close()
 
 	for state := range sub.Receive() {

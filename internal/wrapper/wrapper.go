@@ -332,12 +332,28 @@ func (wp *wrapper) gracefulStop(statusChan <-chan cmd.Status) (bool, error) {
 	}
 }
 
+type defaultGrpcWrappedStream struct {
+	grpc.ServerStream
+	ctx context.Context
+}
+
+func (w *defaultGrpcWrappedStream) Context() context.Context {
+	return w.ctx
+}
+
 func (wp *wrapper) runGrpcServer(ctx context.Context) error {
 	lis, err := net.Listen("tcp", "0.0.0.0:8791")
 	if err != nil {
 		return err
 	}
-	grpcServer := grpc.NewServer()
+	grpcServer := grpc.NewServer(
+		grpc.UnaryInterceptor(func(ctx context.Context, req any, info *grpc.UnaryServerInfo, handler grpc.UnaryHandler) (resp any, err error) {
+			return handler(WithWrapper(ctx, wp), req)
+		}),
+		grpc.StreamInterceptor(func(srv any, ss grpc.ServerStream, info *grpc.StreamServerInfo, handler grpc.StreamHandler) error {
+			return handler(srv, &defaultGrpcWrappedStream{ss, WithWrapper(ss.Context(), wp)})
+		}),
+	)
 	for _, service := range wp.services {
 		service.Register(grpcServer)
 	}

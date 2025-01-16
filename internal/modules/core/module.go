@@ -44,4 +44,5 @@ func Initialize(_ map[string]any, registry *wrapper.Registry) {
 	}
 	registry.LoggingHandlers["default"] = NewDefaultLoggingHandler
 	registry.LoggingHandlers["http"] = NewHttpLoggingHandler
+	registry.Hooks["http"] = NewHttpHook
 }

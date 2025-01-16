@@ -1,4 +1,4 @@
-package wrapper
+package core
 
 import (
 	"bytes"
@@ -6,6 +6,7 @@ import (
 	"net/http"
 	"time"
 
+	"github.com/Lucino772/envelop/internal/wrapper"
 	"github.com/mitchellh/mapstructure"
 )
 
@@ -13,7 +14,7 @@ type HttpHook struct {
 	Url string `mapstructure:"url,omitempty"`
 }
 
-func NewHttpHook(options map[string]any) *HttpHook {
+func NewHttpHook(options map[string]any) wrapper.Hook {
 	var hook HttpHook
 	if err := mapstructure.Decode(options, &hook); err != nil {
 		return nil

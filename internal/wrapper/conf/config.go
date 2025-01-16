@@ -98,28 +98,31 @@ func Load(source []byte) (*wrapper.Options, error) {
 	options.Graceful.Stopper = makeStopper(data.Process.Graceful.Options)
 
 	for _, hook := range data.Hooks {
-		h := wrapper.NewHook(hook.Type, hook.Options)
-		if h != nil {
-			// TODO: Add name from hook
-			options.Tasks = append(
-				options.Tasks,
-				wrapper.NewNamedTask(
-					"hook",
-					func(ctx context.Context, wp wrapper.Wrapper) error {
-						sub := wp.SubscribeEvents()
-						defer sub.Close()
+		makeHook, ok := registry.Hooks[hook.Type]
+		if ok {
+			hook := makeHook(hook.Options)
+			if hook != nil {
+				// TODO: Add name from hook
+				options.Tasks = append(
+					options.Tasks,
+					wrapper.NewNamedTask(
+						"hook",
+						func(ctx context.Context, wp wrapper.Wrapper) error {
+							sub := wp.SubscribeEvents()
+							defer sub.Close()
 
-						for event := range sub.Receive() {
-							data, err := json.Marshal(event)
-							if err == nil {
-								// TODO: Handle error, log maybe ?
-								_ = h.Execute(ctx, data)
+							for event := range sub.Receive() {
+								data, err := json.Marshal(event)
+								if err == nil {
+									// TODO: Handle error, log maybe ?
+									_ = hook.Execute(ctx, data)
+								}
 							}
-						}
-						return nil
-					},
-				),
-			)
+							return nil
+						},
+					),
+				)
+			}
 		}
 	}
 

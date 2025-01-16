@@ -47,7 +47,7 @@ func (client *rconClient) authenticate(password string) error {
 		return err
 	}
 	var buffer [4086]byte
-	pktId, pktType, _, err := client.recv(buffer)
+	pktId, pktType, _, err := client.recv(buffer[:])
 	if err != nil {
 		return err
 	}
@@ -68,7 +68,7 @@ func (client *rconClient) exec(command string) (string, error) {
 
 	// TODO: Implement packet fragmentation
 	var buff [4086]byte
-	pktId, pktType, nbytes, err := client.recv(buff)
+	pktId, pktType, nbytes, err := client.recv(buff[:])
 	if err != nil {
 		return "", err
 	}
@@ -88,7 +88,7 @@ func (client *rconClient) send(reqId int32, reqType int32, data []byte) error {
 	return err
 }
 
-func (client *rconClient) recv(buffer [4086]byte) (int32, int32, int, error) {
+func (client *rconClient) recv(buffer []byte) (int32, int32, int, error) {
 	var header [12]byte
 	if _, err := client.inner.Read(header[:]); err != nil {
 		return -1, -1, -1, err
@@ -100,6 +100,6 @@ func (client *rconClient) recv(buffer [4086]byte) (int32, int32, int, error) {
 	}
 	var pktId = int32(binary.LittleEndian.Uint32(header[4:8]))
 	var pktType = int32(binary.LittleEndian.Uint32(header[8:12]))
-	var nbytes = copy(buffer[:], response[:len(response)-2])
+	var nbytes = copy(buffer, response[:len(response)-2])
 	return pktId, pktType, nbytes, nil
 }

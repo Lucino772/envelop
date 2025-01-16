@@ -2,13 +2,9 @@ package minecraft
 
 import (
 	"context"
-	"errors"
-	"net"
 	"time"
 
-	"github.com/Lucino772/envelop/internal/protocols/ut3"
 	"github.com/Lucino772/envelop/internal/wrapper"
-	"golang.org/x/sync/errgroup"
 )
 
 type fetchMinecraftPlayersTask struct{}
@@ -22,79 +18,47 @@ func (task *fetchMinecraftPlayersTask) Name() string {
 }
 
 func (task *fetchMinecraftPlayersTask) Run(ctx context.Context, wp wrapper.Wrapper) error {
-	ready := task.waitQueryReady(ctx, wp)
-	if !ready {
-		return errors.New("query is not enabled")
+	err := task.waitServerReady(ctx, wp)
+	if err != nil {
+		return err
 	}
-
-	result := make(chan ut3.MinecraftQueryStats)
-	defer close(result)
-
-	var d net.Dialer
-	wg := new(errgroup.Group)
-	wg.SetLimit(1)
 	for {
-		conn, err := d.DialContext(ctx, "udp", "localhost:25565")
+		// TODO: Add config options for port and version
+		stats, err := Query(ctx, "localhost", 25565, SLP_Version15)
 		if err != nil {
 			return err
 		}
-		wg.Go(func() error {
-			var stats ut3.MinecraftQueryStats
-			if err := ut3.QueryMinecraft(conn, &stats); err != nil {
-				return err
-			}
-			result <- stats
-			return nil
-		})
-		select {
-		case <-ctx.Done():
-			conn.Close()
-		case stats := <-result:
-			wp.UpdateState(wrapper.PlayerState{
-				Count:   int(stats.NumPlayers),
-				Max:     int(stats.MaxPlayers),
-				Players: stats.Players,
-			})
+		players := make([]string, 0)
+		for _, player := range stats.Players.Sample {
+			players = append(players, player.Name)
 		}
-		if err := wg.Wait(); err != nil {
-			return err
+		wp.UpdateState(wrapper.PlayerState{
+			Count:   int(stats.Players.Online),
+			Max:     int(stats.Players.Max),
+			Players: players,
+		})
+
+		select {
+		case <-time.After(time.Second * 3):
+		case <-ctx.Done():
+			return ctx.Err()
 		}
 	}
 }
 
-func (task *fetchMinecraftPlayersTask) waitQueryReady(ctx context.Context, wp wrapper.Wrapper) bool {
+func (task *fetchMinecraftPlayersTask) waitServerReady(ctx context.Context, wp wrapper.Wrapper) error {
 	sub := wp.SubscribeLogs()
 	defer sub.Close()
 	messages := sub.Receive()
 
-	// Wait for server to be ready
-	var serverReady = false
-	for !serverReady {
+	for {
 		select {
 		case value := <-messages:
 			if matches := serverReadyRegex.FindStringSubmatch(value); matches != nil {
-				serverReady = true
+				return nil
 			}
 		case <-ctx.Done():
-			return false
+			return ctx.Err()
 		}
 	}
-
-	// Wait for Query be ready with timeout
-	timeoutCtx, cancel := context.WithTimeout(ctx, 5*time.Second)
-	defer cancel()
-
-	var queryReady = false
-	for !queryReady {
-		select {
-		case value := <-messages:
-			if matches := serverRegexQueryReady.FindStringSubmatch(value); matches != nil {
-				queryReady = true
-			}
-		case <-timeoutCtx.Done():
-			return false
-		}
-	}
-
-	return queryReady
 }

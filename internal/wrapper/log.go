@@ -13,17 +13,6 @@ var (
 	LevelProcess = slog.Level(12)
 )
 
-func NewLoggingHandler(typ string, opts map[string]any) slog.Handler {
-	switch typ {
-	case "default":
-		return NewDefaultLoggingHandler(opts)
-	case "http":
-		return NewHttpLoggingHandler(opts)
-	default:
-		return nil
-	}
-}
-
 func levelAttributeReplacer(groups []string, a slog.Attr) slog.Attr {
 	if a.Key == slog.LevelKey {
 		level := a.Value.Any().(slog.Level)

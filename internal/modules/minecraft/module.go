@@ -2,13 +2,13 @@ package minecraft
 
 import "github.com/Lucino772/envelop/internal/wrapper"
 
-func Initialize(_ map[string]any, wrapperOpts *wrapper.Options) {
-	wrapperOpts.Services = append(
-		wrapperOpts.Services,
+func Initialize(_ map[string]any, registry *wrapper.Registry) {
+	registry.Services = append(
+		registry.Services,
 		NewMinecraftRconService(),
 	)
-	wrapperOpts.Tasks = append(
-		wrapperOpts.Tasks,
+	registry.Tasks = append(
+		registry.Tasks,
 		NewCheckMinecraftStatusTask(),
 		NewFetchMinecraftPlayersTask(),
 	)

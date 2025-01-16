@@ -23,7 +23,7 @@ type httpLogData struct {
 	Data    map[string]any `json:"data"`
 }
 
-func NewHttpLoggingHandler(opts map[string]any) *HttpLoggingHandler {
+func NewHttpLoggingHandler(opts map[string]any) slog.Handler {
 	var handler HttpLoggingHandler
 	if err := mapstructure.Decode(opts, &handler); err != nil {
 		return nil

@@ -9,6 +9,7 @@ import (
 	"log/slog"
 	"os"
 	"slices"
+	"syscall"
 	"time"
 
 	"github.com/Lucino772/envelop/internal/modules"
@@ -20,7 +21,10 @@ import (
 	"gopkg.in/yaml.v3"
 )
 
-var ErrInvalidWrapperConfig = errors.New("invalid wrapper config")
+var (
+	ErrInvalidWrapperConfig   = errors.New("invalid wrapper config")
+	ErrUnknownGracefulStopper = errors.New("unknown graceful stopper")
+)
 
 //go:embed envelop-spec.json
 var configSchema string
@@ -69,7 +73,35 @@ func Load(source []byte) (*wrapper.Options, error) {
 		return nil, err
 	}
 
+	// We start by loading the modules in the registry
+	var registry wrapper.Registry
+	for _, mod := range data.Modules {
+		modules.InitializeModule(mod.Name, mod.Options, &registry)
+	}
+
+	// Add default stoppers in registry
+	registry.Stoppers = map[string]func(map[string]any) wrapper.Stopper{
+		"cmd": func(opts map[string]any) wrapper.Stopper {
+			command := opts["cmd"].(string)
+			return func(w wrapper.Wrapper) error {
+				return w.WriteStdin(command)
+			}
+		},
+		"signal": func(opts map[string]any) wrapper.Stopper {
+			sig := syscall.Signal(opts["signal"].(int))
+			return func(w wrapper.Wrapper) error {
+				return w.SendSignal(sig)
+			}
+		},
+	}
+	registry.LoggingHandlers = map[string]func(map[string]any) slog.Handler{
+		"default": wrapper.NewDefaultLoggingHandler,
+		"http":    wrapper.NewHttpLoggingHandler,
+	}
+
 	var options wrapper.Options
+	options.Services = registry.Services
+	options.Tasks = registry.Tasks
 
 	command, err := shlex.Split(data.Process.Command)
 	if err != nil {
@@ -79,7 +111,11 @@ func Load(source []byte) (*wrapper.Options, error) {
 	options.Args = command[1:]
 
 	options.Graceful.Timeout = time.Duration(data.Process.Graceful.Timeout) * time.Second
-	options.Graceful.Stopper = wrapper.NewGracefulStopper(data.Process.Graceful.Type, data.Process.Graceful.Options)
+	makeStopper, ok := registry.Stoppers[data.Process.Graceful.Type]
+	if !ok {
+		return nil, ErrUnknownGracefulStopper
+	}
+	options.Graceful.Stopper = makeStopper(data.Process.Graceful.Options)
 
 	for _, hook := range data.Hooks {
 		h := wrapper.NewHook(hook.Type, hook.Options)
@@ -109,14 +145,15 @@ func Load(source []byte) (*wrapper.Options, error) {
 
 	handlers := make([]slog.Handler, 0)
 	for _, logconf := range data.Logging {
-		if handler := wrapper.NewLoggingHandler(logconf.Type, logconf.Options); handler != nil {
-			handlers = append(handlers, handler)
+		makeHandler, ok := registry.LoggingHandlers[logconf.Type]
+		if ok {
+			handler := makeHandler(logconf.Options)
+			if handler != nil {
+				handlers = append(handlers, handler)
+			}
 		}
 	}
 	options.Logger = slog.New(logutils.NewMultiHandler(handlers...))
-	for _, mod := range data.Modules {
-		modules.InitializeModule(mod.Name, mod.Options, &options)
-	}
 	return &options, nil
 }
 

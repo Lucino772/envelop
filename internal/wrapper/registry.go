@@ -21,6 +21,21 @@ type Wrapper interface {
 	SubscribeStates() pubsub.Subscriber[any]
 	UpdateState(state any)
 	Logger() *slog.Logger
+	GetServerConfig() (KeyValue, error)
+}
+
+type KeyValue interface {
+	GetInt8(string, int8) int8
+	GetUint8(string, uint8) uint8
+	GetInt16(string, int16) int16
+	GetUint16(string, uint16) uint16
+	GetInt32(string, int32) int32
+	GetUint32(string, uint32) uint32
+	GetInt64(string, int64) int64
+	GetUint64(string, uint64) uint64
+	GetBool(string, bool) bool
+	GetString(string, string) string
+	GetMap(string, KeyValue) KeyValue
 }
 
 type Hook interface {
@@ -38,6 +53,10 @@ type Service interface {
 	Register(grpc.ServiceRegistrar)
 }
 
+type ConfigParser interface {
+	Parse(map[string]any, Wrapper) error
+}
+
 type Registry struct {
 	Tasks    []Task
 	Services []Service
@@ -45,6 +64,7 @@ type Registry struct {
 	Stoppers        map[string]func(map[string]any) Stopper
 	LoggingHandlers map[string]func(map[string]any) slog.Handler
 	Hooks           map[string]func(map[string]any) Hook
+	ConfigParser    map[string]func(map[string]any) ConfigParser
 }
 
 func NewRegistry() *Registry {
@@ -54,5 +74,6 @@ func NewRegistry() *Registry {
 		Stoppers:        make(map[string]func(map[string]any) Stopper),
 		LoggingHandlers: make(map[string]func(map[string]any) slog.Handler),
 		Hooks:           make(map[string]func(map[string]any) Hook),
+		ConfigParser:    make(map[string]func(map[string]any) ConfigParser),
 	}
 }

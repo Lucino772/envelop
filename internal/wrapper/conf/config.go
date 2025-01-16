@@ -46,6 +46,10 @@ type configData struct {
 		Type    string         `yaml:"type,omitempty"`
 		Options map[string]any `yaml:"options,omitempty"`
 	} `yaml:"logging,omitempty"`
+	Configs []struct {
+		Type    string         `yaml:"type,omitempty"`
+		Options map[string]any `yaml:"options,omitempty"`
+	} `yaml:"configs,omitempty"`
 	Modules []struct {
 		Name    string                 `yaml:"uses,omitempty"`
 		Options map[string]interface{} `yaml:"with,omitempty"`
@@ -97,9 +101,17 @@ func Load(source []byte) (*wrapper.Options, error) {
 	}
 	options.Graceful.Stopper = makeStopper(data.Process.Graceful.Options)
 
+	for _, cfg := range data.Configs {
+		if makeConfigParser, ok := registry.ConfigParser[cfg.Type]; ok {
+			parser := makeConfigParser(cfg.Options)
+			if parser != nil {
+				options.ConfigParsers = append(options.ConfigParsers, parser)
+			}
+		}
+	}
+
 	for _, hook := range data.Hooks {
-		makeHook, ok := registry.Hooks[hook.Type]
-		if ok {
+		if makeHook, ok := registry.Hooks[hook.Type]; ok {
 			hook := makeHook(hook.Options)
 			if hook != nil {
 				// TODO: Add name from hook
@@ -128,8 +140,7 @@ func Load(source []byte) (*wrapper.Options, error) {
 
 	handlers := make([]slog.Handler, 0)
 	for _, logconf := range data.Logging {
-		makeHandler, ok := registry.LoggingHandlers[logconf.Type]
-		if ok {
+		if makeHandler, ok := registry.LoggingHandlers[logconf.Type]; ok {
 			handler := makeHandler(logconf.Options)
 			if handler != nil {
 				handlers = append(handlers, handler)

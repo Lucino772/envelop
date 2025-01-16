@@ -32,9 +32,10 @@ type Options struct {
 		Timeout time.Duration
 		Stopper Stopper
 	}
-	Tasks    []Task
-	Services []Service
-	Logger   *slog.Logger
+	Tasks         []Task
+	Services      []Service
+	ConfigParsers []ConfigParser
+	Logger        *slog.Logger
 }
 
 func Run(ctx context.Context, options *Options) error {
@@ -110,6 +111,7 @@ func Run(ctx context.Context, options *Options) error {
 		eventsProducer: eventProducer,
 		logger:         logger,
 		states:         states,
+		configParsers:  options.ConfigParsers,
 	}
 
 	// Run
@@ -282,6 +284,8 @@ type WrapperContext struct {
 	eventsProducer pubsub.Producer[Event]
 	logger         *slog.Logger
 	states         *States
+	configParsers  []ConfigParser
+	config         keyValue
 }
 
 func (wp *WrapperContext) Files() fs.FS {
@@ -363,6 +367,19 @@ func (wp *WrapperContext) ReadState(state any) bool {
 
 func (wp *WrapperContext) Logger() *slog.Logger {
 	return wp.logger
+}
+
+func (wp *WrapperContext) GetServerConfig() (KeyValue, error) {
+	if wp.config == nil {
+		config := make(keyValue)
+		for _, parser := range wp.configParsers {
+			if err := parser.Parse(config, wp); err != nil {
+				return nil, err
+			}
+		}
+		wp.config = config
+	}
+	return wp.config, nil
 }
 
 type States struct {

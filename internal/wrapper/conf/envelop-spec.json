@@ -36,6 +36,12 @@
                 "$ref": "#/definitions/log_config"
             }
         },
+        "configs": {
+            "type": "array",
+            "items": {
+                "$ref": "#/definitions/config_config"
+            }
+        },
         "modules": {
             "type": "array",
             "items": {
@@ -68,6 +74,17 @@
             "required": ["type"]
         },
         "log_config": {
+            "type": "object",
+            "properties": {
+                "type": { "type": "string" },
+                "options": {
+                    "type": "object",
+                    "default": {}
+                }
+            },
+            "required": ["type"]
+        },
+        "config_config": {
             "type": "object",
             "properties": {
                 "type": { "type": "string" },

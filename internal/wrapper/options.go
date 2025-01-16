@@ -33,26 +33,3 @@ type Task interface {
 type Service interface {
 	Register(grpc.ServiceRegistrar)
 }
-
-func WithForwardProcessLogsToLogger(options *Options) {
-	options.Tasks = append(
-		options.Tasks,
-		NewNamedTask(
-			"process-logs-forward",
-			func(ctx context.Context, wp Wrapper) error {
-				sub := wp.SubscribeLogs()
-				defer sub.Close()
-
-				logger := wp.Logger()
-				for log := range sub.Receive() {
-					logger.LogAttrs(
-						ctx,
-						LevelProcess,
-						log,
-					)
-				}
-				return nil
-			},
-		),
-	)
-}

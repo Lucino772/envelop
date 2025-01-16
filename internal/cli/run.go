@@ -59,7 +59,6 @@ func runRun(opts *wrapperOptions) (err error) {
 	if err != nil {
 		return err
 	}
-	wrapper.WithForwardProcessLogsToLogger(conf)
 	conf.Dir = opts.Directory
 
 	err = wrapper.Run(context.Background(), conf)

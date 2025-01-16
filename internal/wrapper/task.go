@@ -36,16 +36,16 @@ func makeRecoverableTask(ctx context.Context, task Task, logger *slog.Logger, wp
 			if err != nil {
 				taskLogger.LogAttrs(
 					ctx,
-					LevelError,
+					slog.LevelError,
 					"task stopped with error",
 					slog.Any("error", err),
 				)
 			} else {
-				taskLogger.LogAttrs(ctx, LevelInfo, "task done")
+				taskLogger.LogAttrs(ctx, slog.LevelInfo, "task done")
 			}
 		}()
 
-		taskLogger.LogAttrs(ctx, LevelInfo, "task started")
+		taskLogger.LogAttrs(ctx, slog.LevelInfo, "task started")
 		if r := task.Run(ctx, wp); r != nil && !errors.Is(r, context.Canceled) {
 			err = r
 		}

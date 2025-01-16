@@ -9,7 +9,6 @@ import (
 	"log/slog"
 	"os"
 	"slices"
-	"syscall"
 	"time"
 
 	"github.com/Lucino772/envelop/internal/modules"
@@ -74,31 +73,12 @@ func Load(source []byte) (*wrapper.Options, error) {
 	}
 
 	// We start by loading the modules in the registry
-	var registry wrapper.Registry
+	registry := wrapper.NewRegistry()
 	for _, mod := range data.Modules {
-		modules.InitializeModule(mod.Name, mod.Options, &registry)
+		modules.InitializeModule(mod.Name, mod.Options, registry)
 	}
 
-	// Add default stoppers in registry
-	registry.Stoppers = map[string]func(map[string]any) wrapper.Stopper{
-		"cmd": func(opts map[string]any) wrapper.Stopper {
-			command := opts["cmd"].(string)
-			return func(w wrapper.Wrapper) error {
-				return w.WriteStdin(command)
-			}
-		},
-		"signal": func(opts map[string]any) wrapper.Stopper {
-			sig := syscall.Signal(opts["signal"].(int))
-			return func(w wrapper.Wrapper) error {
-				return w.SendSignal(sig)
-			}
-		},
-	}
-	registry.LoggingHandlers = map[string]func(map[string]any) slog.Handler{
-		"default": wrapper.NewDefaultLoggingHandler,
-		"http":    wrapper.NewHttpLoggingHandler,
-	}
-
+	// We can now prepare the Options for the wrapper
 	var options wrapper.Options
 	options.Services = registry.Services
 	options.Tasks = registry.Tasks

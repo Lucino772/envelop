@@ -129,33 +129,33 @@ func Run(ctx context.Context, options *Options) error {
 
 	mainErrGroup.Go(func() error {
 		defer cancel()
-		logger.LogAttrs(mainCtx, LevelInfo, "Starting gRPC server")
+		logger.LogAttrs(mainCtx, slog.LevelInfo, "Starting gRPC server")
 		err := runGrpcServer(mainCtx, &wrapperCtx, options)
 		if err != nil {
 			logger.LogAttrs(
 				mainCtx,
-				LevelError,
+				slog.LevelError,
 				"gRPC server error",
 				slog.Any("error", err),
 			)
 		} else {
-			logger.LogAttrs(mainCtx, LevelInfo, "gRPC server stopped")
+			logger.LogAttrs(mainCtx, slog.LevelInfo, "gRPC server stopped")
 		}
 		return err
 	})
 	mainErrGroup.Go(func() error {
 		defer cancel()
-		logger.LogAttrs(mainCtx, LevelInfo, "Starting process")
+		logger.LogAttrs(mainCtx, slog.LevelInfo, "Starting process")
 		err := runProcess(mainCtx, options, &wrapperCtx, stdinReader)
 		if err != nil {
 			logger.LogAttrs(
 				mainCtx,
-				LevelError,
+				slog.LevelError,
 				"Process error",
 				slog.Any("error", err),
 			)
 		} else {
-			logger.LogAttrs(mainCtx, LevelInfo, "Process stopped")
+			logger.LogAttrs(mainCtx, slog.LevelInfo, "Process stopped")
 		}
 		return err
 	})

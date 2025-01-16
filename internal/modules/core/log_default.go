@@ -1,4 +1,4 @@
-package wrapper
+package core
 
 import (
 	"log/slog"

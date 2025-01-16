@@ -1,44 +1,46 @@
-package minecraft
+package rcon
 
 import (
 	"context"
-	"io/fs"
 
 	"github.com/Lucino772/envelop/internal/protocols"
 	"github.com/Lucino772/envelop/internal/wrapper"
 	pb "github.com/Lucino772/envelop/pkg/protobufs"
-	"github.com/magiconair/properties"
 	"google.golang.org/grpc"
 )
 
-type minecraftRconService struct {
+type rconService struct {
 	pb.UnimplementedRconServer
+
+	passwordKey string
+	portKey     string
+	enabledKey  string
 }
 
-func NewMinecraftRconService() *minecraftRconService {
-	return &minecraftRconService{}
+func newRconService(passwordKey string, portKey string, enabledKey string) *rconService {
+	return &rconService{
+		passwordKey: passwordKey,
+		portKey:     portKey,
+		enabledKey:  enabledKey,
+	}
 }
 
-func (service *minecraftRconService) SendCommand(ctx context.Context, req *pb.RconCommand) (*pb.RconResponse, error) {
+func (service *rconService) SendCommand(ctx context.Context, req *pb.RconCommand) (*pb.RconResponse, error) {
 	wp, err := wrapper.FromContext(ctx)
 	if err != nil {
 		return nil, err
 	}
+	config, err := wp.GetServerConfig()
+	if err != nil {
+		return nil, err
+	}
 
-	data, err := fs.ReadFile(wp.Files(), "server.properties")
-	if err != nil {
-		return nil, err
-	}
-	props, err := properties.LoadString(string(data))
-	if err != nil {
-		return nil, err
-	}
-	if !props.GetBool("enable-rcon", false) {
+	if service.enabledKey != "" && !config.GetBool(service.enabledKey, false) {
 		// TODO: Return error, rcon disabled
 		return &pb.RconResponse{Value: ""}, nil
 	}
-	rconPort := props.GetInt("rcon.port", -1)
-	rconPassword := props.GetString("rcon.password", "")
+	rconPort := config.GetInt16(service.portKey, -1)
+	rconPassword := config.GetString(service.passwordKey, "")
 	if rconPort == -1 || rconPassword == "" {
 		// TODO: Return error, password or port not set
 		return &pb.RconResponse{Value: ""}, nil
@@ -51,6 +53,6 @@ func (service *minecraftRconService) SendCommand(ctx context.Context, req *pb.Rc
 	return &pb.RconResponse{Value: resp}, nil
 }
 
-func (service *minecraftRconService) Register(server grpc.ServiceRegistrar) {
+func (service *rconService) Register(server grpc.ServiceRegistrar) {
 	pb.RegisterRconServer(server, service)
 }

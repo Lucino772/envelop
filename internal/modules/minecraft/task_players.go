@@ -24,18 +24,26 @@ func (task *fetchMinecraftPlayersTask) Run(ctx context.Context, wp wrapper.Wrapp
 	}
 	for {
 		// TODO: Add config options for port and version
-		stats, err := Query(ctx, "localhost", 25565, SLP_Version15)
+		stats, err := Query(ctx, "localhost", 25565, SLP_Version17)
 		if err != nil {
 			return err
 		}
-		players := make([]string, 0)
-		for _, player := range stats.Players.Sample {
-			players = append(players, player.Name)
-		}
-		wp.UpdateState(wrapper.PlayerState{
-			Count:   int(stats.Players.Online),
-			Max:     int(stats.Players.Max),
-			Players: players,
+		wp.UpdateState(func(state wrapper.ServerState) wrapper.ServerState {
+			state.Players.Count = stats.Players.Online
+			state.Players.Max = stats.Players.Max
+			state.Players.List = make([]wrapper.ServerState_Player, 0)
+			for _, player := range stats.Players.Sample {
+				state.Players.List = append(
+					state.Players.List,
+					wrapper.ServerState_Player{
+						Id: player.Id,
+						Attributes: map[string]any{
+							"name": player.Name,
+						},
+					},
+				)
+			}
+			return state
 		})
 
 		select {

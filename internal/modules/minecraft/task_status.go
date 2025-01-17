@@ -40,21 +40,25 @@ func (task *checkMinecraftStatusTask) processSubexpNames(regex *regexp.Regexp, m
 
 func (task *checkMinecraftStatusTask) processValue(wp wrapper.Wrapper, value string) {
 	if matches := serverStartingRegex.FindStringSubmatch(value); matches != nil {
-		wp.UpdateState(wrapper.ProcessStatusState{
-			Description: "Starting",
+		wp.UpdateState(func(state wrapper.ServerState) wrapper.ServerState {
+			state.Status.Description = "Starting"
+			return state
 		})
 	} else if matches := serverPreparingRegex.FindStringSubmatch(value); matches != nil {
 		groups := task.processSubexpNames(serverPreparingRegex, matches)
-		wp.UpdateState(wrapper.ProcessStatusState{
-			Description: fmt.Sprintf("Preparing (%s%%)", groups["progress"]),
+		wp.UpdateState(func(state wrapper.ServerState) wrapper.ServerState {
+			state.Status.Description = fmt.Sprintf("Preparing (%s%%)", groups["progress"])
+			return state
 		})
 	} else if matches := serverReadyRegex.FindStringSubmatch(value); matches != nil {
-		wp.UpdateState(wrapper.ProcessStatusState{
-			Description: "Ready",
+		wp.UpdateState(func(state wrapper.ServerState) wrapper.ServerState {
+			state.Status.Description = "Ready"
+			return state
 		})
 	} else if matches := serverStoppingRegex.FindStringSubmatch(value); matches != nil {
-		wp.UpdateState(wrapper.ProcessStatusState{
-			Description: "Stopping",
+		wp.UpdateState(func(state wrapper.ServerState) wrapper.ServerState {
+			state.Status.Description = "Stopping"
+			return state
 		})
 	}
 }

@@ -2,7 +2,6 @@ package core
 
 import (
 	"context"
-	"errors"
 
 	"github.com/Lucino772/envelop/internal/wrapper"
 	pb "github.com/Lucino772/envelop/pkg/protobufs"
@@ -24,18 +23,14 @@ func (service *corePlayersService) ListPlayers(ctx context.Context, _ *emptypb.E
 		return nil, err
 	}
 
-	var state wrapper.PlayerState
-	if ok := wp.ReadState(&state); !ok {
-		return nil, errors.New("failed to read player state")
-	}
-
+	var state = wp.GetState()
 	players := make([]*pb.Player, 0)
-	for _, player := range state.Players {
-		players = append(players, &pb.Player{Name: player})
+	for _, player := range state.Players.List {
+		players = append(players, &pb.Player{Name: player.Id})
 	}
 	return &pb.PlayerList{
-		NumPlayers: uint32(state.Count),
-		MaxPlayers: uint32(state.Max),
+		NumPlayers: uint32(state.Players.Count),
+		MaxPlayers: uint32(state.Players.Max),
 		Players:    players,
 	}, nil
 }
@@ -50,18 +45,16 @@ func (service *corePlayersService) StreamPlayers(_ *emptypb.Empty, stream pb.Pla
 	defer sub.Close()
 
 	for state := range sub.Receive() {
-		if playerState, ok := state.(*wrapper.PlayerState); ok {
-			playerList := &pb.PlayerList{
-				NumPlayers: uint32(playerState.Count),
-				MaxPlayers: uint32(playerState.Max),
-				Players:    make([]*pb.Player, 0),
-			}
-			for _, player := range playerState.Players {
-				playerList.Players = append(playerList.Players, &pb.Player{Name: player})
-			}
-			if err := stream.Send(playerList); err != nil {
-				return err
-			}
+		playerList := &pb.PlayerList{
+			NumPlayers: uint32(state.Players.Count),
+			MaxPlayers: uint32(state.Players.Max),
+			Players:    make([]*pb.Player, 0),
+		}
+		for _, player := range state.Players.List {
+			playerList.Players = append(playerList.Players, &pb.Player{Name: player.Id})
+		}
+		if err := stream.Send(playerList); err != nil {
+			return err
 		}
 	}
 	return nil

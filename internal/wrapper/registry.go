@@ -17,9 +17,9 @@ type Wrapper interface {
 	SubscribeLogs() pubsub.Subscriber[string]
 	SubscribeEvents() pubsub.Subscriber[Event]
 	EmitEvent(event any)
-	ReadState(state any) bool
-	SubscribeStates() pubsub.Subscriber[any]
-	UpdateState(state any)
+	GetState() ServerState
+	SubscribeStates() pubsub.Subscriber[ServerState]
+	UpdateState(func(ServerState) ServerState)
 	Logger() *slog.Logger
 	GetServerConfig() (KeyValue, error)
 }

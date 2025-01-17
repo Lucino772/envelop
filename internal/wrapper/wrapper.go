@@ -10,13 +10,11 @@ import (
 	"os"
 	"os/exec"
 	"os/signal"
-	"reflect"
 	"runtime"
 	"sync"
 	"syscall"
 	"time"
 
-	"github.com/Lucino772/envelop/internal/utils"
 	"github.com/Lucino772/envelop/pkg/pubsub"
 	"github.com/go-cmd/cmd"
 	"golang.org/x/sync/errgroup"
@@ -59,19 +57,20 @@ func Run(ctx context.Context, options *Options) error {
 		options.Dir = cwd
 	}
 
-	// Initialize states
-	states, err := NewStates()
+	// Initialize statess
+	states, err := NewStates(ServerState{
+		Status: ServerState_Status{
+			Description: "Unknown",
+		},
+		Players: ServerState_Players{
+			Count: 0,
+			Max:   0,
+			List:  make([]ServerState_Player, 0),
+		},
+	})
 	if err != nil {
 		return err
 	}
-	states.Set(&ProcessStatusState{
-		Description: "Unknown",
-	})
-	states.Set(&PlayerState{
-		Count:   0,
-		Max:     0,
-		Players: []string{},
-	})
 
 	// Event producer
 	eventProducer := pubsub.NewProducer(5, states.HandleEvent)
@@ -345,24 +344,22 @@ func (wp *WrapperContext) SubscribeLogs() pubsub.Subscriber[string] {
 	})
 }
 
-func (wp *WrapperContext) SubscribeStates() pubsub.Subscriber[any] {
-	return pubsub.NewSubscriber(wp.eventsProducer, func(e Event) (any, bool) {
+func (wp *WrapperContext) SubscribeStates() pubsub.Subscriber[ServerState] {
+	return pubsub.NewSubscriber(wp.eventsProducer, func(e Event) (ServerState, bool) {
 		if event, ok := e.Data.(StateUpdateEvent); ok {
-			return event.Data, true
+			return event.State, true
 		}
-		return nil, false
+		return ServerState{}, false
 	})
 }
 
-func (wp *WrapperContext) UpdateState(state any) {
-	wp.EmitEvent(StateUpdateEvent{
-		Name: GetStateName(state),
-		Data: state,
-	})
+func (wp *WrapperContext) UpdateState(updateFn func(ServerState) ServerState) {
+	state := updateFn(wp.states.Get())
+	wp.EmitEvent(StateUpdateEvent{State: state})
 }
 
-func (wp *WrapperContext) ReadState(state any) bool {
-	return wp.states.Get(state)
+func (wp *WrapperContext) GetState() ServerState {
+	return wp.states.Get()
 }
 
 func (wp *WrapperContext) Logger() *slog.Logger {
@@ -380,64 +377,4 @@ func (wp *WrapperContext) GetServerConfig() (KeyValue, error) {
 		wp.config = config
 	}
 	return wp.config, nil
-}
-
-type States struct {
-	store       map[string]any
-	idGenerator func() (string, error)
-}
-
-func NewStates() (*States, error) {
-	idGenerator, err := utils.NewNanoIDGenerator()
-	if err != nil {
-		return nil, err
-	}
-	return &States{
-		store:       make(map[string]any),
-		idGenerator: idGenerator,
-	}, nil
-}
-
-func (s *States) HandleEvent(event Event) (Event, bool) {
-	id, err := s.idGenerator()
-	if err == nil {
-		event.Id = id
-	}
-
-	if stateEvent, ok := event.Data.(StateUpdateEvent); ok {
-		return event, s.Set(stateEvent.Data)
-	}
-	return event, true
-}
-
-func (s *States) Set(state any) bool {
-	name := GetStateName(state)
-	current, ok := s.store[name]
-	var updated bool = false
-	if !ok {
-		s.store[name] = state
-		updated = true
-	} else if !reflect.DeepEqual(current, state) {
-		s.store[name] = state
-		updated = true
-	}
-	return updated
-}
-
-func (s *States) Get(state any) bool {
-	if state == nil {
-		return false
-	}
-
-	value, ok := s.store[GetStateName(state)]
-	if !ok {
-		return false
-	}
-
-	valuePtr := reflect.ValueOf(value)
-	if valuePtr.Kind() != reflect.Ptr {
-		return false
-	}
-	reflect.ValueOf(state).Elem().Set(valuePtr.Elem())
-	return true
 }

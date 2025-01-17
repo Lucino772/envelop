@@ -10,10 +10,12 @@ import (
 	"os"
 	"os/exec"
 	"os/signal"
+	"reflect"
 	"sync"
 	"syscall"
 	"time"
 
+	"github.com/Lucino772/envelop/internal/utils"
 	"github.com/Lucino772/envelop/pkg/pubsub"
 	"github.com/go-cmd/cmd"
 	"golang.org/x/sync/errgroup"
@@ -56,30 +58,6 @@ func Run(ctx context.Context, options *Options) error {
 		options.Dir = cwd
 	}
 
-	// Initialize statess
-	states := NewStates(ServerState{
-		Status: ServerState_Status{
-			Description: "Unknown",
-		},
-		Players: ServerState_Players{
-			Count: 0,
-			Max:   0,
-			List:  make([]ServerState_Player, 0),
-		},
-	})
-
-	// Event producer
-	eventProducer := pubsub.NewProducer(5, states.HandleEvent)
-	options.Tasks = append(
-		options.Tasks,
-		NewNamedTask(
-			"events-producer",
-			func(ctx context.Context, _ Wrapper) error {
-				return eventProducer.Run(ctx)
-			},
-		),
-	)
-
 	// Prepare command
 	stdinReader, stdinWriter, err := os.Pipe()
 	if err != nil {
@@ -96,14 +74,33 @@ func Run(ctx context.Context, options *Options) error {
 
 	// Prepare wrapper context
 	wrapperCtx := WrapperContext{
-		dir:            options.Dir,
-		stdin:          stdinWriter,
-		command:        command,
-		eventsProducer: eventProducer,
-		logger:         logger,
-		states:         states,
-		configParsers:  options.ConfigParsers,
+		dir:           options.Dir,
+		stdin:         stdinWriter,
+		command:       command,
+		logger:        logger,
+		configParsers: options.ConfigParsers,
+		state: ServerState{
+			Status: ServerState_Status{
+				Description: "Unknown",
+			},
+			Players: ServerState_Players{
+				Count: 0,
+				Max:   0,
+				List:  make([]ServerState_Player, 0),
+			},
+		},
+		idGenerator: utils.NewNanoIDGenerator(),
 	}
+	wrapperCtx.eventsProducer = pubsub.NewProducer(5, wrapperCtx.handleEvent)
+	options.Tasks = append(
+		options.Tasks,
+		NewNamedTask(
+			"events-producer",
+			func(ctx context.Context, _ Wrapper) error {
+				return wrapperCtx.eventsProducer.Run(ctx)
+			},
+		),
+	)
 
 	// Run
 	runCtx, cancel := context.WithCancel(ctx)
@@ -270,9 +267,10 @@ type WrapperContext struct {
 	command        *cmd.Cmd
 	eventsProducer pubsub.Producer[Event]
 	logger         *slog.Logger
-	states         *States
 	configParsers  []ConfigParser
 	config         typeConversionMap
+	state          ServerState
+	idGenerator    func() (string, error)
 }
 
 func (wp *WrapperContext) Files() fs.FS {
@@ -322,12 +320,12 @@ func (wp *WrapperContext) SubscribeStates() pubsub.Subscriber[ServerState] {
 }
 
 func (wp *WrapperContext) UpdateState(updateFn func(ServerState) ServerState) {
-	state := updateFn(wp.states.Get())
+	state := updateFn(wp.state)
 	wp.EmitEvent(StateUpdateEvent{State: state})
 }
 
 func (wp *WrapperContext) GetState() ServerState {
-	return wp.states.Get()
+	return wp.state
 }
 
 func (wp *WrapperContext) Logger() *slog.Logger {
@@ -345,4 +343,21 @@ func (wp *WrapperContext) GetServerConfig() (Map, error) {
 		wp.config = config
 	}
 	return wp.config, nil
+}
+
+func (wp *WrapperContext) handleEvent(event Event) (Event, bool) {
+	id, err := wp.idGenerator()
+	if err == nil {
+		event.Id = id
+	}
+
+	if stateEvent, ok := event.Data.(StateUpdateEvent); ok {
+		var updated bool = false
+		if !reflect.DeepEqual(wp.state, stateEvent.State) {
+			updated = true
+			wp.state = stateEvent.State
+		}
+		return event, updated
+	}
+	return event, true
 }

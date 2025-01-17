@@ -23,6 +23,10 @@ func NewSubscriber[T any, K any](p Producer[K], processIncoming func(K) (T, bool
 }
 
 func (s *subscriber[T, K]) Send(ctx context.Context, val K) error {
+	if s.closed {
+		return nil
+	}
+
 	if value, ok := s.processIncoming(val); ok {
 		select {
 		case s.incoming <- value:
@@ -36,9 +40,9 @@ func (s *subscriber[T, K]) Send(ctx context.Context, val K) error {
 
 func (s *subscriber[T, K]) Close() {
 	if !s.closed {
+		s.closed = true
 		s.producer.Detach(s)
 		close(s.incoming)
-		s.closed = true
 	}
 }
 

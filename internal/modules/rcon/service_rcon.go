@@ -3,7 +3,6 @@ package rcon
 import (
 	"context"
 
-	"github.com/Lucino772/envelop/internal/protocols"
 	"github.com/Lucino772/envelop/internal/wrapper"
 	pb "github.com/Lucino772/envelop/pkg/protobufs"
 	"google.golang.org/grpc"
@@ -46,7 +45,7 @@ func (service *rconService) SendCommand(ctx context.Context, req *pb.RconCommand
 		return &pb.RconResponse{Value: ""}, nil
 	}
 
-	resp, err := protocols.SendRcon(ctx, "localhost", uint16(rconPort), rconPassword, req.Value)
+	resp, err := sendRconCommand(ctx, "localhost", uint16(rconPort), rconPassword, req.Value)
 	if err != nil {
 		return nil, err
 	}

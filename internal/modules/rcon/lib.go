@@ -1,4 +1,4 @@
-package protocols
+package rcon
 
 import (
 	"context"
@@ -22,18 +22,39 @@ const (
 	rconCommandResponse int32 = 0
 )
 
-func SendRcon(ctx context.Context, host string, port uint16, password string, command string) (string, error) {
+func sendRconCommand(ctx context.Context, host string, port uint16, password string, command string) (string, error) {
 	var d net.Dialer
 	conn, err := d.DialContext(ctx, "tcp", fmt.Sprintf("%s:%d", host, port))
 	if err != nil {
 		return "", err
 	}
 	defer conn.Close()
-	var client = rconClient{inner: conn}
-	if err := client.authenticate(password); err != nil {
-		return "", err
+
+	resultChan := make(chan response)
+	defer close(resultChan)
+
+	go func() {
+		var client = rconClient{inner: conn}
+		if err := client.authenticate(password); err != nil {
+			resultChan <- response{err: err}
+		}
+		resp, err := client.exec(command)
+		resultChan <- response{value: resp, err: err}
+	}()
+
+	select {
+	case <-ctx.Done():
+		conn.Close()
+		<-resultChan // wait for goroutine to exit
+		return "", ctx.Err()
+	case resp := <-resultChan:
+		return resp.value, resp.err
 	}
-	return client.exec(command)
+}
+
+type response struct {
+	value string
+	err   error
 }
 
 type rconClient struct {

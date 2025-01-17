@@ -284,7 +284,7 @@ type WrapperContext struct {
 	logger         *slog.Logger
 	states         *States
 	configParsers  []ConfigParser
-	config         keyValue
+	config         typeConversionMap
 }
 
 func (wp *WrapperContext) Files() fs.FS {
@@ -366,9 +366,9 @@ func (wp *WrapperContext) Logger() *slog.Logger {
 	return wp.logger
 }
 
-func (wp *WrapperContext) GetServerConfig() (KeyValue, error) {
+func (wp *WrapperContext) GetServerConfig() (Map, error) {
 	if wp.config == nil {
-		config := make(keyValue)
+		config := make(typeConversionMap)
 		for _, parser := range wp.configParsers {
 			if err := parser.Parse(config, wp); err != nil {
 				return nil, err

@@ -21,10 +21,10 @@ type Wrapper interface {
 	SubscribeStates() pubsub.Subscriber[ServerState]
 	UpdateState(func(ServerState) ServerState)
 	Logger() *slog.Logger
-	GetServerConfig() (KeyValue, error)
+	GetServerConfig() (Map, error)
 }
 
-type KeyValue interface {
+type Map interface {
 	GetInt8(string, int8) int8
 	GetUint8(string, uint8) uint8
 	GetInt16(string, int16) int16
@@ -35,7 +35,7 @@ type KeyValue interface {
 	GetUint64(string, uint64) uint64
 	GetBool(string, bool) bool
 	GetString(string, string) string
-	GetMap(string, KeyValue) KeyValue
+	GetMap(string, Map) Map
 }
 
 type Hook interface {

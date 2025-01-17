@@ -5,26 +5,26 @@ import (
 	"strings"
 )
 
-type keyValue map[string]any
+type typeConversionMap map[string]any
 
-func (kv keyValue) getKey(key string) (any, bool) {
+func (cmap typeConversionMap) getKey(key string) (any, bool) {
 	keys := strings.SplitN(key, ".", 1)
 	if len(keys) == 1 {
-		val, ok := kv[keys[0]]
+		val, ok := cmap[keys[0]]
 		return val, ok
 	}
-	value, ok := kv[keys[0]]
+	value, ok := cmap[keys[0]]
 	if !ok {
 		return nil, false
 	}
-	if kv_, ok := value.(keyValue); ok {
+	if kv_, ok := value.(typeConversionMap); ok {
 		return kv_.getKey(keys[1])
 	}
 	return nil, false
 }
 
-func (kv keyValue) GetInt8(key string, def int8) int8 {
-	value, ok := kv.getKey(key)
+func (cmap typeConversionMap) GetInt8(key string, def int8) int8 {
+	value, ok := cmap.getKey(key)
 	if !ok {
 		return def
 	}
@@ -41,8 +41,8 @@ func (kv keyValue) GetInt8(key string, def int8) int8 {
 	return def
 }
 
-func (kv keyValue) GetUint8(key string, def uint8) uint8 {
-	value, ok := kv.getKey(key)
+func (cmap typeConversionMap) GetUint8(key string, def uint8) uint8 {
+	value, ok := cmap.getKey(key)
 	if !ok {
 		return def
 	}
@@ -59,8 +59,8 @@ func (kv keyValue) GetUint8(key string, def uint8) uint8 {
 	return def
 }
 
-func (kv keyValue) GetInt16(key string, def int16) int16 {
-	value, ok := kv.getKey(key)
+func (cmap typeConversionMap) GetInt16(key string, def int16) int16 {
+	value, ok := cmap.getKey(key)
 	if !ok {
 		return def
 	}
@@ -77,8 +77,8 @@ func (kv keyValue) GetInt16(key string, def int16) int16 {
 	return def
 }
 
-func (kv keyValue) GetUint16(key string, def uint16) uint16 {
-	value, ok := kv.getKey(key)
+func (cmap typeConversionMap) GetUint16(key string, def uint16) uint16 {
+	value, ok := cmap.getKey(key)
 	if !ok {
 		return def
 	}
@@ -95,8 +95,8 @@ func (kv keyValue) GetUint16(key string, def uint16) uint16 {
 	return def
 }
 
-func (kv keyValue) GetInt32(key string, def int32) int32 {
-	value, ok := kv.getKey(key)
+func (cmap typeConversionMap) GetInt32(key string, def int32) int32 {
+	value, ok := cmap.getKey(key)
 	if !ok {
 		return def
 	}
@@ -113,8 +113,8 @@ func (kv keyValue) GetInt32(key string, def int32) int32 {
 	return def
 }
 
-func (kv keyValue) GetUint32(key string, def uint32) uint32 {
-	value, ok := kv.getKey(key)
+func (cmap typeConversionMap) GetUint32(key string, def uint32) uint32 {
+	value, ok := cmap.getKey(key)
 	if !ok {
 		return def
 	}
@@ -131,8 +131,8 @@ func (kv keyValue) GetUint32(key string, def uint32) uint32 {
 	return def
 }
 
-func (kv keyValue) GetInt64(key string, def int64) int64 {
-	value, ok := kv.getKey(key)
+func (cmap typeConversionMap) GetInt64(key string, def int64) int64 {
+	value, ok := cmap.getKey(key)
 	if !ok {
 		return def
 	}
@@ -149,8 +149,8 @@ func (kv keyValue) GetInt64(key string, def int64) int64 {
 	return def
 }
 
-func (kv keyValue) GetUint64(key string, def uint64) uint64 {
-	value, ok := kv.getKey(key)
+func (cmap typeConversionMap) GetUint64(key string, def uint64) uint64 {
+	value, ok := cmap.getKey(key)
 	if !ok {
 		return def
 	}
@@ -167,8 +167,8 @@ func (kv keyValue) GetUint64(key string, def uint64) uint64 {
 	return def
 }
 
-func (kv keyValue) GetBool(key string, def bool) bool {
-	value, ok := kv.getKey(key)
+func (cmap typeConversionMap) GetBool(key string, def bool) bool {
+	value, ok := cmap.getKey(key)
 	if !ok {
 		return def
 	}
@@ -185,8 +185,8 @@ func (kv keyValue) GetBool(key string, def bool) bool {
 	return def
 }
 
-func (kv keyValue) GetString(key string, def string) string {
-	value, ok := kv.getKey(key)
+func (cmap typeConversionMap) GetString(key string, def string) string {
+	value, ok := cmap.getKey(key)
 	if !ok {
 		return def
 	}
@@ -215,13 +215,13 @@ func (kv keyValue) GetString(key string, def string) string {
 	return def
 }
 
-func (kv keyValue) GetMap(key string, def KeyValue) KeyValue {
-	value, ok := kv.getKey(key)
+func (cmap typeConversionMap) GetMap(key string, def Map) Map {
+	value, ok := cmap.getKey(key)
 	if !ok {
 		return def
 	}
 	if val, ok := value.(map[string]any); ok {
-		return keyValue(val)
+		return typeConversionMap(val)
 	}
 	return def
 }

@@ -23,15 +23,11 @@ var nanoIdStandardAlphabet = [...]byte{
 	'8', '9', '-', '_',
 }
 
-func NewNanoIDGenerator() (func() (string, error), error) {
+func NewNanoIDGenerator() func() (string, error) {
 	buf := make([]byte, nanoIdBufferSize)
-	if _, err := rand.Read(buf); err != nil {
-		return nil, err
-	}
-	offset := 0
+	offset := nanoIdBufferSize
 
 	var id [nanoIdSize]byte
-
 	return func() (string, error) {
 		// Refill if all the bytes have been used.
 		if offset >= nanoIdBufferSize {
@@ -54,5 +50,5 @@ func NewNanoIDGenerator() (func() (string, error), error) {
 
 		offset += nanoIdSize
 		return string(id[:]), nil
-	}, nil
+	}
 }

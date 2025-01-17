@@ -31,12 +31,11 @@ type States struct {
 	idGenerator func() (string, error)
 }
 
-func NewStates(state ServerState) (*States, error) {
-	idGenerator, err := utils.NewNanoIDGenerator()
-	if err != nil {
-		return nil, err
+func NewStates(state ServerState) *States {
+	return &States{
+		state:       state,
+		idGenerator: utils.NewNanoIDGenerator(),
 	}
-	return &States{state: state, idGenerator: idGenerator}, nil
 }
 
 func (s *States) HandleEvent(event Event) (Event, bool) {

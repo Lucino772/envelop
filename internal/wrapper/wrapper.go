@@ -57,7 +57,7 @@ func Run(ctx context.Context, options *Options) error {
 	}
 
 	// Initialize statess
-	states, err := NewStates(ServerState{
+	states := NewStates(ServerState{
 		Status: ServerState_Status{
 			Description: "Unknown",
 		},
@@ -67,9 +67,6 @@ func Run(ctx context.Context, options *Options) error {
 			List:  make([]ServerState_Player, 0),
 		},
 	})
-	if err != nil {
-		return err
-	}
 
 	// Event producer
 	eventProducer := pubsub.NewProducer(5, states.HandleEvent)
@@ -164,10 +161,10 @@ func Run(ctx context.Context, options *Options) error {
 func runProcess(ctx context.Context, options *Options, wp *WrapperContext, stdinReader io.Reader) error {
 	defer wp.stdin.Close()
 
-	signalChan := make(chan os.Signal, 1)
-	signal.Notify(signalChan, os.Interrupt, syscall.SIGTERM)
-	statusChan := wp.command.StartWithStdin(stdinReader)
+	signalCtx, cancel := signal.NotifyContext(ctx, os.Interrupt, syscall.SIGTERM)
+	defer cancel()
 
+	statusChan := wp.command.StartWithStdin(stdinReader)
 	var wg sync.WaitGroup
 	wg.Add(1)
 	go func() {
@@ -192,14 +189,10 @@ func runProcess(ctx context.Context, options *Options, wp *WrapperContext, stdin
 
 	var err error = nil
 	select {
-	case <-ctx.Done():
-		gracefulStop(statusChan, options, wp)
-		err = wp.command.Stop()
-	case <-signalChan:
+	case <-signalCtx.Done():
 		gracefulStop(statusChan, options, wp)
 		err = wp.command.Stop()
 	case status := <-statusChan:
-		signal.Stop(signalChan)
 		err = status.Error
 	}
 	wg.Wait()

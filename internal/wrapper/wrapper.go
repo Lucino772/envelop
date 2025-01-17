@@ -10,7 +10,6 @@ import (
 	"os"
 	"os/exec"
 	"os/signal"
-	"runtime"
 	"sync"
 	"syscall"
 	"time"
@@ -90,13 +89,9 @@ func Run(ctx context.Context, options *Options) error {
 		return err
 	}
 	command := cmd.NewCmdOptions(cmd.Options{
-		Buffered:  false,
-		Streaming: true,
-		BeforeExec: []func(cmd *exec.Cmd){
-			func(cmd *exec.Cmd) {
-				cmd.SysProcAttr.CreationFlags = syscall.CREATE_NEW_PROCESS_GROUP
-			},
-		},
+		Buffered:   false,
+		Streaming:  true,
+		BeforeExec: []func(cmd *exec.Cmd){setProcessGroupID},
 	}, options.Program, options.Args...)
 	command.Dir = options.Dir
 	command.Env = append(command.Env, os.Environ()...)
@@ -298,27 +293,7 @@ func (wp *WrapperContext) WriteStdin(command string) error {
 
 func (wp *WrapperContext) SendSignal(signal os.Signal) error {
 	// TODO: Check process started
-	pid := wp.command.Status().PID
-	if runtime.GOOS == "windows" {
-		d, err := syscall.LoadDLL("kernel32.dll")
-		if err != nil {
-			return err
-		}
-		p, err := d.FindProc("GenerateConsoleCtrlEvent")
-		if err != nil {
-			return err
-		}
-		r, _, err := p.Call(syscall.CTRL_BREAK_EVENT, uintptr(pid))
-		if r == 0 {
-			return err
-		}
-		return nil
-	}
-	process, err := os.FindProcess(pid)
-	if err != nil {
-		return err
-	}
-	return process.Signal(signal)
+	return sendSignal(wp.command.Status().PID, signal)
 }
 
 func (wp *WrapperContext) EmitEvent(event any) {

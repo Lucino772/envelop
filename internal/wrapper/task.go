@@ -2,8 +2,6 @@ package wrapper
 
 import (
 	"context"
-	"errors"
-	"log/slog"
 )
 
 type task struct {
@@ -24,31 +22,4 @@ func (task *task) Name() string {
 
 func (task *task) Run(ctx context.Context, wp Wrapper) error {
 	return task.run(ctx, wp)
-}
-
-func makeRecoverableTask(ctx context.Context, task Task, logger *slog.Logger, wp Wrapper) func() error {
-	return func() (err error) {
-		taskLogger := logger.With(slog.String("task", task.Name()))
-		defer func() {
-			if r := recover(); r != nil {
-				err = r.(error)
-			}
-			if err != nil {
-				taskLogger.LogAttrs(
-					ctx,
-					slog.LevelError,
-					"task stopped with error",
-					slog.Any("error", err),
-				)
-			} else {
-				taskLogger.LogAttrs(ctx, slog.LevelInfo, "task done")
-			}
-		}()
-
-		taskLogger.LogAttrs(ctx, slog.LevelInfo, "task started")
-		if r := task.Run(ctx, wp); r != nil && !errors.Is(r, context.Canceled) {
-			err = r
-		}
-		return err
-	}
 }

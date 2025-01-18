@@ -2,6 +2,7 @@ package wrapper
 
 import (
 	"context"
+	"errors"
 	"fmt"
 	"io"
 	"io/fs"
@@ -18,7 +19,6 @@ import (
 	"github.com/Lucino772/envelop/internal/utils"
 	"github.com/Lucino772/envelop/pkg/pubsub"
 	"github.com/go-cmd/cmd"
-	"golang.org/x/sync/errgroup"
 	"google.golang.org/grpc"
 )
 
@@ -91,7 +91,7 @@ func Run(ctx context.Context, options *Options) error {
 		},
 		idGenerator: utils.NewNanoIDGenerator(),
 	}
-	wrapperCtx.eventsProducer = pubsub.NewProducer(5, wrapperCtx.handleEvent)
+	wrapperCtx.eventsProducer = pubsub.NewProducer(100, wrapperCtx.handleEvent)
 	options.Tasks = append(
 		options.Tasks,
 		NewNamedTask(
@@ -100,59 +100,73 @@ func Run(ctx context.Context, options *Options) error {
 				return wrapperCtx.eventsProducer.Run(ctx)
 			},
 		),
+		NewNamedTask(
+			"grpc-server",
+			func(ctx context.Context, wp Wrapper) error {
+				return runGrpcServer(ctx, wp, options)
+			},
+		),
 	)
 
 	// Run
-	runCtx, cancel := context.WithCancel(ctx)
-	defer cancel()
+	processCtx, cancelProcess := context.WithCancel(ctx)
+	defer cancelProcess()
+	tasksCtx, cancelTasks := context.WithCancel(context.Background())
+	defer cancelTasks()
 
-	var (
-		mainErrGroup, mainCtx = errgroup.WithContext(runCtx)
-		taskErrGroup, _       = errgroup.WithContext(mainCtx)
-	)
-	mainErrGroup.SetLimit(2)
-	taskErrGroup.SetLimit(-1)
-
+	pool := NewPool()
 	for _, task := range options.Tasks {
-		taskErrGroup.Go(makeRecoverableTask(mainCtx, task, logger, &wrapperCtx))
+		pool.Go(task, func() error {
+			logger.LogAttrs(tasksCtx, slog.LevelInfo, "task started", slog.String("task", task.Name()))
+			return task.Run(tasksCtx, &wrapperCtx)
+		})
 	}
-
-	mainErrGroup.Go(func() error {
-		defer cancel()
-		logger.LogAttrs(mainCtx, slog.LevelInfo, "Starting gRPC server")
-		err := runGrpcServer(mainCtx, &wrapperCtx, options)
-		if err != nil {
-			logger.LogAttrs(
-				mainCtx,
-				slog.LevelError,
-				"gRPC server error",
-				slog.Any("error", err),
-			)
-		} else {
-			logger.LogAttrs(mainCtx, slog.LevelInfo, "gRPC server stopped")
-		}
-		return err
+	pool.Go("process", func() error {
+		return runProcess(processCtx, options, &wrapperCtx, stdinReader)
 	})
-	mainErrGroup.Go(func() error {
-		defer cancel()
-		logger.LogAttrs(mainCtx, slog.LevelInfo, "Starting process")
-		err := runProcess(mainCtx, options, &wrapperCtx, stdinReader)
-		if err != nil {
-			logger.LogAttrs(
-				mainCtx,
-				slog.LevelError,
-				"Process error",
-				slog.Any("error", err),
-			)
-		} else {
-			logger.LogAttrs(mainCtx, slog.LevelInfo, "Process stopped")
-		}
-		return err
-	})
+	pool.WaitAsync()
 
-	err = mainErrGroup.Wait()
-	taskErrGroup.Wait()
-	return err
+	var processErr error
+	for result := range pool.Result() {
+		switch value := result.Key.(type) {
+		case Task:
+			if result.Error != nil && !errors.Is(result.Error, context.Canceled) {
+				logger.LogAttrs(
+					tasksCtx,
+					slog.LevelError,
+					"task stopped with error, retrying",
+					slog.String("task", value.Name()),
+					slog.Any("error", result.Error),
+				)
+				pool.Go(value, func() error {
+					logger.LogAttrs(tasksCtx, slog.LevelInfo, "task started", slog.String("task", value.Name()))
+					return value.Run(tasksCtx, &wrapperCtx)
+				})
+			} else {
+				logger.LogAttrs(
+					tasksCtx,
+					slog.LevelInfo,
+					"task is done",
+					slog.String("task", value.Name()),
+				)
+			}
+		case string:
+			if result.Error != nil && !errors.Is(result.Error, context.Canceled) {
+				logger.LogAttrs(
+					processCtx,
+					slog.LevelError,
+					"process stopped with error",
+					slog.Any("error", err),
+				)
+				processErr = result.Error
+			} else {
+				logger.LogAttrs(processCtx, slog.LevelInfo, "process is done")
+			}
+			cancelTasks()
+		}
+	}
+	<-pool.Done()
+	return processErr
 }
 
 func runProcess(ctx context.Context, options *Options, wp *WrapperContext, stdinReader io.Reader) error {
@@ -222,7 +236,7 @@ func (w *defaultGrpcWrappedStream) Context() context.Context {
 	return w.ctx
 }
 
-func runGrpcServer(ctx context.Context, wp *WrapperContext, options *Options) error {
+func runGrpcServer(ctx context.Context, wp Wrapper, options *Options) error {
 	lis, err := net.Listen("tcp", "0.0.0.0:8791")
 	if err != nil {
 		return err

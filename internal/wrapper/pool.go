@@ -6,6 +6,7 @@ type Pool struct {
 	wg         sync.WaitGroup
 	resultChan chan *PoolResult
 	done       chan struct{}
+	closed     bool
 }
 
 type PoolResult struct {
@@ -20,15 +21,20 @@ func NewPool() *Pool {
 	}
 }
 
-func (pool *Pool) WaitAsync() {
+func (pool *Pool) Monitor() {
 	go func() {
 		defer close(pool.done)
 		defer close(pool.resultChan)
 		pool.wg.Wait()
+		pool.closed = true
 	}()
 }
 
-func (pool *Pool) Go(key any, function func() error) {
+func (pool *Pool) Submit(key any, function func() error) {
+	if pool.closed {
+		return
+	}
+
 	pool.wg.Add(1)
 	go func(wg *sync.WaitGroup, resultChan chan<- *PoolResult, taskKey any) {
 		defer wg.Done()
@@ -37,7 +43,7 @@ func (pool *Pool) Go(key any, function func() error) {
 	}(&pool.wg, pool.resultChan, key)
 }
 
-func (pool *Pool) Result() <-chan *PoolResult {
+func (pool *Pool) Results() <-chan *PoolResult {
 	return pool.resultChan
 }
 

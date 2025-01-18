@@ -116,18 +116,19 @@ func Run(ctx context.Context, options *Options) error {
 
 	pool := NewPool()
 	for _, task := range options.Tasks {
-		pool.Go(task, func() error {
+		pool.Submit(task, func() error {
 			logger.LogAttrs(tasksCtx, slog.LevelInfo, "task started", slog.String("task", task.Name()))
 			return task.Run(tasksCtx, &wrapperCtx)
 		})
 	}
-	pool.Go("process", func() error {
+	pool.Submit("process", func() error {
+		logger.Log(processCtx, slog.LevelInfo, "process started")
 		return runProcess(processCtx, options, &wrapperCtx, stdinReader)
 	})
-	pool.WaitAsync()
+	pool.Monitor()
 
 	var processErr error
-	for result := range pool.Result() {
+	for result := range pool.Results() {
 		switch value := result.Key.(type) {
 		case Task:
 			if result.Error != nil && !errors.Is(result.Error, context.Canceled) {
@@ -138,7 +139,7 @@ func Run(ctx context.Context, options *Options) error {
 					slog.String("task", value.Name()),
 					slog.Any("error", result.Error),
 				)
-				pool.Go(value, func() error {
+				pool.Submit(value, func() error {
 					logger.LogAttrs(tasksCtx, slog.LevelInfo, "task started", slog.String("task", value.Name()))
 					return value.Run(tasksCtx, &wrapperCtx)
 				})

@@ -3,7 +3,9 @@ package steam
 import (
 	"bytes"
 	"compress/gzip"
+	"encoding/binary"
 	"io"
+	"net"
 	"regexp"
 )
 
@@ -31,4 +33,17 @@ func processRegexGroups(regex *regexp.Regexp, matches []string) map[string]strin
 		}
 	}
 	return result
+}
+
+func NetAddrToUint32(addr net.Addr) uint32 {
+	switch v := addr.(type) {
+	case *net.TCPAddr:
+		return binary.BigEndian.Uint32(v.IP.To4())
+	case *net.UDPAddr:
+		return binary.BigEndian.Uint32(v.IP.To4())
+	case *net.IPAddr:
+		return binary.BigEndian.Uint32(v.IP.To4())
+	default:
+		return 0
+	}
 }

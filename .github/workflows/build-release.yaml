@@ -28,7 +28,7 @@ jobs:
       - name: Install GoReleaser
         uses: goreleaser/goreleaser-action@v6
         with:
-          version: 1.26.1
+          version: 2.6.1
           install-only: true
 
       - name: Build
